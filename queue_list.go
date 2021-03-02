@@ -6,11 +6,11 @@ import (
 	"sync"
 )
 
-// CondQ is a type of queue that uses a
+// List is a type of queue that uses a
 // condition variable and lists to implement the
 // BoundedQueue interface. this implementation
 // is intended to be thread safe
-type CondQ struct {
+type List struct {
 	queue *list.List		// contains the elements currently in the queue
 	capacity int	    // maximum number of elements the queue can hold
 	mtx sync.Mutex      // a mutex for mutual exclusion
@@ -19,7 +19,7 @@ type CondQ struct {
 
 // Put adds an element onto the tail queue
 // if the queue is full, an error is returned
-func (cvq *CondQ) Put(value interface{}) error {
+func (cvq *List) Put(value interface{}) error {
 	// local the mutex
 	cvq.cvr.L.Lock();
 
@@ -47,7 +47,7 @@ func (cvq *CondQ) Put(value interface{}) error {
 
 // Get returns an element from the head of the queue
 // if the queue is empty,the caller blocks
-func (cvq *CondQ) Get() interface{} {
+func (cvq *List) Get() interface{} {
 	// lock the mutex
 	cvq.cvr.L.Lock()
 
@@ -67,7 +67,7 @@ func (cvq *CondQ) Get() interface{} {
 }
 
 // Try gets a value or returns an error if the queue is empty
-func (cvq *CondQ) Try() (interface{}, error) {
+func (cvq *List) Try() (interface{}, error) {
 	var value interface{}
 	var err error
 
@@ -89,23 +89,23 @@ func (cvq *CondQ) Try() (interface{}, error) {
 }
 
 // Len is the current number of elements in the queue 
-func (cvq *CondQ) Len() int {
+func (cvq *List) Len() int {
 	return cvq.queue.Len()
 }
 
 // Cap is the maximum number of elements the queue can hold
-func (cvq *CondQ) Cap() int {
+func (cvq *List) Cap() int {
 	return cvq.capacity;
 }
 
 // String
-func (cvq *CondQ) String() string {return ""}
+func (cvq *List) String() string {return ""}
 
-// NewCondQ is a factory for creating bounded queues
+// NewListQueue is a factory for creating bounded queues
 // that use a condition variable and lists. It returns
 // an instance of pointer to BoundedQueue
-func NewCondQ(size int) BoundedQueue {
-	var cvq CondQ
+func NewListQueue(size int) BoundedQueue {
+	var cvq List
 
 	cvq.capacity = size
 	cvq.queue = list.New()

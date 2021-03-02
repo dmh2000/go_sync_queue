@@ -4,17 +4,17 @@ import (
 	"errors"
 )
 
-// ChannelQ is a type of queue that uses a
+// Channel is a type of queue that uses a
 // condition variable and lists to implement the
 // BoundedQueue interface. this implementation
 // is intended to be thread safe
-type ChannelQ struct {
+type Channel struct {
 	channel chan interface{} // buffered channel with specified capacity 
 }
 
 // Put adds an element onto the tail queue
 // if the queue is full, an error is returned
-func (chq *ChannelQ) Put(value interface{}) error {
+func (chq *Channel) Put(value interface{}) error {
 	var err error
 
 	err = nil
@@ -34,13 +34,13 @@ func (chq *ChannelQ) Put(value interface{}) error {
 
 // Get returns an element from the head of the queue
 // if the queue is empty,the caller blocks
-func (chq *ChannelQ) Get() interface{} {
+func (chq *Channel) Get() interface{} {
 	// get a value or block
 	return <-chq.channel
 }
 
 // Try gets a value or returns an error if the queue is empty
-func (chq *ChannelQ) Try() (interface{}, error) {
+func (chq *Channel) Try() (interface{}, error) {
 	var err error
 	var value interface{}
 
@@ -56,23 +56,23 @@ func (chq *ChannelQ) Try() (interface{}, error) {
 }
 
 // Len is the current number of elements in the queue 
-func (chq *ChannelQ) Len() int {
+func (chq *Channel) Len() int {
 	return len(chq.channel)
 }
 
 // Cap is the maximum number of elements the queue can hold
-func (chq *ChannelQ) Cap() int {
+func (chq *Channel) Cap() int {
 	return cap(chq.channel)
 }
 
 // String
-func (chq *ChannelQ) String() string {return ""}
+func (chq *Channel) String() string {return ""}
 
-// NewCHQ is a factory for creating bounded queues
+// NewChannelQueue is a factory for creating bounded queues
 // that uses a channel
 // It returns an instance of pointer to BoundedQueue
-func NewCHQ(size int) BoundedQueue {
-	var chq ChannelQ
+func NewChannelQueue(size int) BoundedQueue {
+	var chq Channel
 
 	chq.channel = make(chan interface{}, size)
 

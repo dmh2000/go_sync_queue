@@ -19,18 +19,17 @@ type NativeInt struct {
 	cvr *sync.Cond       // a condition variable for controlling mutations to the queue
 }
 
-// Put adds an element onto the tail queue
+// TryPut adds an element onto the tail queue
 // if the queue is full, an error is returned
-func (nvq *NativeInt	) Put(value int) error {
+func (nvq *NativeInt) TryPut(value int) error {
 	// local the mutex
 	nvq.cvr.L.Lock();
+	defer nvq.cvr.L.Unlock()
 
 	// is queue full ?
 	if nvq.length == nvq.capacity {
 		// return an error
 		e := errors.New("queue is full")
-		// don't forget to unlock
-		nvq.cvr.L.Unlock();
 		return e;
 	}
 
@@ -42,18 +41,40 @@ func (nvq *NativeInt	) Put(value int) error {
 	// signal a waiter if any
 	nvq.cvr.Signal()
 
-	// unlock
-	nvq.cvr.L.Unlock()
-
 	// no error
 	return nil
 } 
 
+// Put adds an element onto the tail queue
+// if the queue is full the function blocks
+func (nvq *NativeInt) Put(value int)  {
+	// local the mutex
+	nvq.cvr.L.Lock()
+	defer nvq.cvr.L.Unlock()
+
+
+	// block until a value is in the queue
+	for nvq.length == nvq.capacity {
+		// releast and wait
+		nvq.cvr.Wait()
+	}
+	
+	// queue has room, add it at the tail
+	nvq.queue[nvq.tail] = value
+	nvq.tail = (nvq.tail+1) % nvq.capacity
+	nvq.length++
+
+	// signal a waiter if any
+	nvq.cvr.Signal()
+} 
+
+
 // Get returns an element from the head of the queue
 // if the queue is empty,the caller blocks
-func (nvq *NativeInt	) Get() int {
+func (nvq *NativeInt) Get() int {
 	// lock the mutex
 	nvq.cvr.L.Lock()
+	defer nvq.cvr.L.Unlock()
 
 	// block until a value is in the queue
 	for nvq.length == 0 {
@@ -67,8 +88,6 @@ func (nvq *NativeInt	) Get() int {
 	nvq.head = (nvq.head + 1)  % nvq.capacity
 	nvq.length--
 
-	// unlock the mutex
-	nvq.cvr.L.Unlock()
 	return value
 }
 
@@ -79,6 +98,7 @@ func (nvq *NativeInt	) Try() (int, error) {
 
 	// lock the mutex
 	nvq.cvr.L.Lock()
+	defer nvq.cvr.L.Unlock()
 
 	// is the queue empty?
 	if nvq.length > 0 {
@@ -90,8 +110,6 @@ func (nvq *NativeInt	) Try() (int, error) {
 		err = errors.New("queue is empty");
 	}
 	
-	// unlock the mutex
-	nvq.cvr.L.Unlock()
 	return value, err
 	
 }

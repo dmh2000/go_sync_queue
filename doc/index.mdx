@@ -1,0 +1,139 @@
+---
+title: "Bounded Queue in Golang"
+date: 2021-03-01
+slug: "/bqchapter1"
+---
+
+### Bounded Queue in Golang
+
+#### Queue
+
+For the purposes of this article, a queue is a data structure with first-in/first-out (FIFO) semantics.
+A generic queue typically has more or less the following methods:
+
+- init : initialize or otherwise create a queue
+- put : adds an element to the tail of the queue.
+- get : takes the element from the head of the queue.
+- length : how many elements are in the queue
+- capacity : how many elements the queue can hold
+
+A bounded queue is one that also has a 'capacity'. In that case, the queue
+is set up to contain a fixed number of elements.
+
+One common use of a queue is to provide a means of communication
+between threads. If a queue is used for that purpose, then it may
+have blocking semantics. The 'get' method may block if the queue is empty.
+The 'put' method may block if the queue is full. If that is how it works,
+then there can be a tryPut method that adds an element if there is room
+in the queue or returns an indication that the queue is full, without blocking.
+Likewise there can be a tryGet method that returns an element or
+an indication the queue is empty.
+
+##### Why have a bound?
+
+Its possible to have an unbounded queue that never gets full.
+Using dynamic allocation you could implement an unbounded queue. In C++
+a list or vector can grow until there is no available memroy. In Go,
+the container/list object has no bound on its number of elements.
+These are unbounded, that is, until you run out of memory. There is always an implicit bound.
+Practically speaking,
+you might want to bound a queue as a type of throttling. Say a system has processing
+power that can only support N things going on a time. An input queue of capacity N would give it
+a way to stop accepting things until less than N are working. Or, maybe the design wants
+to know it has enough memory to support all its functions. In many real time systems there
+is a practice that calls for allocating all resources during initialization so that all the
+contstraints are known and can be analyzed.
+
+### Bounded Queue API
+
+The intention here is to implement reusable queue API that abstracts away
+the underlying mechanism. There are other ways to implement a queue besides
+channels, and subsequent chapters will explore the tradeoffs. Since this
+is for Go, the API will be defined as an interface. Because it is meant
+to be general purpose the elements are empty interfaces, like in container/list::List
+and sync::Map.
+
+For this go-around, the API includes both blocking and non-blocking implementations
+of put and get. Its important to note that it is not thread safe for client code to
+first check the length and then execuate a get or put, because the length could change
+between check it and doing the operation. The non-blocking operations need to be
+atomic with respect to the client code.
+
+```go
+{
+  // BoundedQueue is a FIFO queue with a bound on the number of elements in the queue
+  type  BoundedQueue interface {
+
+
+    // PutB: add an element onto the tail queue, blocking
+    // if the queue is full, the method returns an error
+    Put(value interface{}) error
+
+    // get an element from the head of the queue
+    // if the queue is empty the get'er blocks
+    Get() interface{}
+
+    // try to get an element from the head of the queue
+    // if the queue is empty an error is returned
+    GetNB() interface{}
+
+    // current number of elements in the queue
+    Len() int
+
+    // capacity maximum number of elements the queue can hold
+    Cap() int
+
+    // string representation
+    fmt.Stringer
+  }
+}
+```
+
+#### Mechanisms, Code and Analysis
+
+This and subsequent chapters will explore various mechanisms for
+concrete implementations of the BoundedQueue interface.
+Each will include implementation and test code, as well as
+some performance analysis.
+
+### Bounded Queue Using Channels
+
+Of course, in the Go language, there are buffered channels, which literally
+are bounded queues. If you aren't familiar with Go channels, search
+for 'golang buffered channel' and there is lots of imformation. The
+official [Go Tour](https://tour.golang.org/concurrency/2) has a basic explanation.
+There are tons of references online about how to use buffered channels.
+
+Here are the semantics of a buffered channel. The
+code for these will be described in the first example below. Implementing the API
+using channels requires the least code of any implementation in this series. The API
+is just a wrapper around the build-in channel syntax.
+
+- make : create a buffered channel with a fixed capacity
+- send:
+  - if the 'len' of the channel is less than the 'cap' (not full), add the element
+  - If the queue is 'len' == 'cap' (full), block until an element is taken from the channel
+- receive:
+  - if the 'len' is greater than zero (not empty), receive an element
+  - if the 'len' is zero (empty), block until an element is available
+- select: implements non-blocking (for code see example)
+  - receive:
+    - if the queue is not empty, receive an element
+    - if the queue is empty, take the default path
+  - send:
+    - if there is room in the channel, add the element
+  - If the queue is full, take the default path
+
+### Bounded Queue(s) Using Mutex/Condition Variable
+
+In a course I took and also things I saw online recommended avoiding using channels as queues and instead suggested using mutex and condition variables along with appropriate data structures. The implementations of all three of these are similar with respect to the mutual exclusion required. The only difference is what data structure was used.
+
+Here's a skeleton of the code used in all three implementations minus the data structure use.
+
+#### Bounded Queue Using container/list with interface{}
+
+My first approach was to use a List from container/list. Many queue implementations you found will use a list or similar construct. This would probably be a good solution for an unbounded queue where memory requirements aren't know up front. The memory and cpu analysis will show that this isn't the best way to go if you have a bound.
+
+#### Bounded Queue Using circular buffer with interface{}
+
+#### Bounded Queue Using circular with native ints

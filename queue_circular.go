@@ -19,18 +19,17 @@ type Circular struct {
 	cvr *sync.Cond       // a condition variable for controlling mutations to the queue
 }
 
-// Put adds an element onto the tail queue
+// TryPut adds an element onto the tail queue
 // if the queue is full, an error is returned
-func (cvq *Circular) Put(value interface{}) error {
+func (cvq *Circular) TryPut(value interface{}) error {
 	// local the mutex
 	cvq.cvr.L.Lock();
+	defer cvq.cvr.L.Unlock()
 
 	// is queue full ?
 	if cvq.length == cvq.capacity {
 		// return an error
 		e := errors.New("queue is full")
-		// don't forget to unlock
-		cvq.cvr.L.Unlock();
 		return e;
 	}
 
@@ -41,12 +40,32 @@ func (cvq *Circular) Put(value interface{}) error {
 
 	// signal a waiter if any
 	cvq.cvr.Signal()
-
-	// unlock
-	cvq.cvr.L.Unlock()
-
+	
 	// no error
 	return nil
+} 
+
+// Put adds an element onto the tail queue
+// if the queue is full the function blocks
+func (cvq *Circular) Put(value interface{})  {
+	// local the mutex
+	cvq.cvr.L.Lock()
+	defer cvq.cvr.L.Unlock()
+
+
+	// block until a value is in the queue
+	for cvq.length == cvq.capacity {
+		// releast and wait
+		cvq.cvr.Wait()
+	}
+	
+	// queue has room, add it at the tail
+	cvq.queue[cvq.tail] = value
+	cvq.tail = (cvq.tail+1) % cvq.capacity
+	cvq.length++
+
+	// signal a waiter if any
+	cvq.cvr.Signal()
 } 
 
 // Get returns an element from the head of the queue
@@ -54,6 +73,7 @@ func (cvq *Circular) Put(value interface{}) error {
 func (cvq *Circular) Get() interface{} {
 	// lock the mutex
 	cvq.cvr.L.Lock()
+	defer cvq.cvr.L.Unlock()
 
 	// block until a value is in the queue
 	for cvq.length == 0 {
@@ -67,18 +87,18 @@ func (cvq *Circular) Get() interface{} {
 	cvq.head = (cvq.head + 1)  % cvq.capacity
 	cvq.length--
 
-	// unlock the mutex
-	cvq.cvr.L.Unlock()
 	return value
 }
 
-// Try gets a value or returns an error if the queue is empty
-func (cvq *Circular) Try() (interface{}, error) {
+// TryGet attempts to get a value
+// if the queue is empty returns an error
+func (cvq *Circular) TryGet() (interface{}, error) {
 	var value interface{}
 	var err error
 
 	// lock the mutex
 	cvq.cvr.L.Lock()
+	defer cvq.cvr.L.Unlock()
 
 	// is the queue empty?
 	if cvq.length > 0 {
@@ -91,9 +111,7 @@ func (cvq *Circular) Try() (interface{}, error) {
 	}
 	
 	// unlock the mutex
-	cvq.cvr.L.Unlock()
 	return value, err
-	
 }
 
 // Len is the current number of elements in the queue 

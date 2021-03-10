@@ -12,9 +12,9 @@ type Channel struct {
 	channel chan interface{} // buffered channel with specified capacity 
 }
 
-// Put adds an element onto the tail queue
+// TryPut adds an element onto the tail queue
 // if the queue is full, an error is returned
-func (chq *Channel) Put(value interface{}) error {
+func (chq *Channel) TryPut(value interface{}) error {
 	var err error
 
 	err = nil
@@ -32,6 +32,12 @@ func (chq *Channel) Put(value interface{}) error {
 	return err
 } 
 
+// Put adds an element to the tail of the queue
+// if the queue is full the function blocks
+func (chq *Channel) Put(value interface{}) {
+	chq.channel <- value
+}
+
 // Get returns an element from the head of the queue
 // if the queue is empty,the caller blocks
 func (chq *Channel) Get() interface{} {
@@ -39,8 +45,8 @@ func (chq *Channel) Get() interface{} {
 	return <-chq.channel
 }
 
-// Try gets a value or returns an error if the queue is empty
-func (chq *Channel) Try() (interface{}, error) {
+// TryGet gets a value or returns an error if the queue is empty
+func (chq *Channel) TryGet() (interface{}, error) {
 	var err error
 	var value interface{}
 

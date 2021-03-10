@@ -25,7 +25,7 @@ func q1(t *testing.T, q BoundedQueue) {
 
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
-		q.Put(i)
+		q.TryPut(i)
 		//length should be == i at this point
 		if q.Len() != (i+1) {
 			t.Error("length should == i+1",q.Len(),i+1)
@@ -38,7 +38,7 @@ func q1(t *testing.T, q BoundedQueue) {
 	}
 
 	// try to add one more
-	err = q.Put(99)
+	err = q.TryPut(99)
 	if err == nil {
 		t.Error("err should be nil")
 	}
@@ -101,7 +101,7 @@ func q2(t *testing.T, q *NativeInt) {
 	}
 
 	// try to add one more
-	err = q.Put(99)
+	err = q.TryPut(99)
 	if err == nil {
 		t.Error("err should be nil")
 	}
@@ -135,22 +135,32 @@ func q2(t *testing.T, q *NativeInt) {
 // 	q1(t,NewCondQ(queueSize))
 // }
 
-func TestQueueChannel(t *testing.T) {
+// CHANNEL
+func TestChannel(t *testing.T) {
 	// using channel
 	q1(t,NewChannelQueue(queueSize))
 }
 
+// LIST
 func TestList(t *testing.T) {
 	// using condition variable queue
 	q1(t,NewListQueue(queueSize))
 }
 
+// CIRCULAR BUFFER
 func TestCircular(t *testing.T) {
 	// using condition variable queue
 	q1(t,NewCircularQueue(queueSize))
 }
 
+// NATIVE QUEUE
 func TestQueueNative(t *testing.T) {
 	// using condition variable queue
 	q2(t,NewNativeQueue(queueSize))
 }
+
+// // SKELETON QUEUE - should fail!
+// func TestQueueSkeleton(t *testing.T) {
+// 	// using condition variable queue
+// 	q1(t,NewSkeletonQueue(queueSize))
+// }

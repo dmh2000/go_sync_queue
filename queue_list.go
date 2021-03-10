@@ -18,17 +18,37 @@ type List struct {
 }
 
 // Put adds an element onto the tail queue
+// if the queue is full the function blocks
+func (cvq *List) Put(value interface{})  {
+	// local the mutex
+	cvq.cvr.L.Lock()
+	defer cvq.cvr.L.Unlock()
+
+
+	// block until a value is in the queue
+	for cvq.queue.Len() == cvq.capacity {
+		// releast and wait
+		cvq.cvr.Wait()
+	}
+	
+	// queue had room, add it
+	cvq.queue.PushBack(value)
+
+	// signal a waiter if any
+	cvq.cvr.Signal()
+} 
+
+// TryPut adds an element onto the tail queue
 // if the queue is full, an error is returned
-func (cvq *List) Put(value interface{}) error {
+func (cvq *List) TryPut(value interface{}) error {
 	// local the mutex
 	cvq.cvr.L.Lock();
+	defer cvq.cvr.L.Unlock()
 
 	// is queue full ?
 	if cvq.queue.Len() == cvq.capacity {
 		// return an error
 		e := errors.New("queue is full")
-		// don't forget to unlock
-		cvq.cvr.L.Unlock();
 		return e;
 	}
 
@@ -38,18 +58,18 @@ func (cvq *List) Put(value interface{}) error {
 	// signal a waiter if any
 	cvq.cvr.Signal()
 
-	// unlock
-	cvq.cvr.L.Unlock()
-
 	// no error
 	return nil
 } 
+
+
 
 // Get returns an element from the head of the queue
 // if the queue is empty,the caller blocks
 func (cvq *List) Get() interface{} {
 	// lock the mutex
 	cvq.cvr.L.Lock()
+	defer cvq.cvr.L.Unlock()
 
 	// block until a value is in the queue
 	for cvq.queue.Len() == 0 {
@@ -62,17 +82,17 @@ func (cvq *List) Get() interface{} {
 	value := cvq.queue.Remove(cvq.queue.Front())
 
 	// unlock the mutex
-	cvq.cvr.L.Unlock()
 	return value
 }
 
-// Try gets a value or returns an error if the queue is empty
-func (cvq *List) Try() (interface{}, error) {
+// TryGet gets a value or returns an error if the queue is empty
+func (cvq *List) TryGet() (interface{}, error) {
 	var value interface{}
 	var err error
 
 	// lock the mutex
 	cvq.cvr.L.Lock()
+	defer cvq.cvr.L.Unlock()
 
 	// is the queue empty?
 	if cvq.queue.Len() > 0 {
@@ -82,10 +102,7 @@ func (cvq *List) Try() (interface{}, error) {
 		err = errors.New("queue is empty");
 	}
 	
-	// unlock the mutex
-	cvq.cvr.L.Unlock()
 	return value, err
-	
 }
 
 // Len is the current number of elements in the queue 

@@ -33,8 +33,7 @@ func (skel *Skeleton) TryPut(value interface{}) error {
 	}
 
 	// queue had room, add it at the tail
-	// ==> add to the tail
-	skel.length++
+	// ==> add to the tail and increment length
 
 	// signal a Get to wake up
 	skel.getcv.Signal()
@@ -58,8 +57,7 @@ func (skel *Skeleton) Put(value interface{})  {
 	}
 	
 	// queue has room, add it at the tail
-	// -- add to the tail
-	skel.length++
+	// ==> add to the tail and increment length
 
 	// signal a Get to wake up
 	skel.getcv.Signal()
@@ -81,9 +79,8 @@ func (skel *Skeleton) Get() interface{} {
 	}
 
 	// at this point there is at least one item in the queue
-	// -- get from the head
+	// ==> get from the head and decrement length
 	value = 0
-	skel.length--
 
 	// signal a Put to wake up
 	skel.putcv.Signal()
@@ -103,9 +100,8 @@ func (skel *Skeleton) TryGet() (interface{}, error) {
 
 	// does the queue have elements?
 	if skel.length > 0 {
-		// -- get from the head
+		// ==> get from the head and decrement length
 		value = 0
-		skel.length--
 	} else {
 		value = nil
 		err = errors.New("queue is empty");

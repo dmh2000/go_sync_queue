@@ -211,23 +211,29 @@ func f(cvr *sync.Cond) {
 
 #### Skeleton Of Implementation
 
-Here's a skeleton of the code used in all three implementations minus the data structure use.
+Here's a skeleton of the code used in all three implementations minus the data structure use. Where you see a comment like this " ==> add to tail " is where add the actual data structure being used.
+
+Note that there are two condition variables but a single mutex. That is to support blocking on both ends, Put and Get. The single mutex protects the data structure in both the Put and Get calls. Put operations block on the **putcv** condition variable and signals the **getcv** condition variable when the Put adds an element to the queue. A Get operation works in the opposite direction, blocking on the **getcv** condition variable and signalling the **putcv** condition variable when an element is removed from the queue.
+
+The non-blocking TryPut and TryGet operations still need to signal their opposite condition variable in case the other end is using the blocking version.
 
 ```go
 type Skeleton struct {
 	// -- some data structure for backing the queue
-	length   int
-	capacity int
+	// ...
+	length   int        // number of elements in the queue
+	capacity int        // max number of elements allowed
 	mtx sync.Mutex      // a mutex for mutual exclusion
-	cvr *sync.Cond       // a condition variable for controlling mutations to the queue
+	putcv *sync.Cond    // a condition variable for controlling Puts
+	getcv *sync.Cond    // a condition variable for controlling Gets
 }
 
 // TryPut adds an element onto the tail queue
 // if the queue is full, an error is returned
 func (skel *Skeleton) TryPut(value interface{}) error {
 	// lock the mutex
-	skel.cvr.L.Lock();
-	defer skel.cvr.L.Unlock()
+	skel.putcv.L.Lock();
+	defer skel.putcv.L.Unlock()
 
 	// is queue full ?
 	if skel.length == skel.capacity {
@@ -237,11 +243,10 @@ func (skel *Skeleton) TryPut(value interface{}) error {
 	}
 
 	// queue had room, add it at the tail
-	// ==> add to the tail
-	skel.length++
+	// ==> add to the tail and increment length
 
-	// signal a waiter if any
-	skel.cvr.Signal()
+	// signal a Get to wake up
+	skel.getcv.Signal()
 
 	// no error
 	return nil
@@ -251,22 +256,21 @@ func (skel *Skeleton) TryPut(value interface{}) error {
 // if the queue is full the function blocks
 func (skel *Skeleton) Put(value interface{})  {
 	// lock the mutex
-	skel.cvr.L.Lock()
-	defer skel.cvr.L.Unlock()
+	skel.putcv.L.Lock()
+	defer skel.putcv.L.Unlock()
 
 
 	// block until a value is in the queue
 	for skel.length == skel.capacity {
 		// releast and wait
-		skel.cvr.Wait()
+		skel.putcv.Wait()
 	}
 
 	// queue has room, add it at the tail
-	// ==> add to the tail
-	skel.length++
+	// ==> add to the tail and increment length
 
-	// signal a waiter if any
-	skel.cvr.Signal()
+	// signal a Get to wake up
+	skel.getcv.Signal()
 }
 
 // Get returns an element from the head of the queue
@@ -275,19 +279,21 @@ func (skel *Skeleton) Get() interface{} {
 	var value interface{}
 
 	// lock the mutex
-	skel.cvr.L.Lock()
-	defer skel.cvr.L.Unlock()
+	skel.getcv.L.Lock()
+	defer skel.getcv.L.Unlock()
 
 	// block until a value is in the queue
 	for skel.length == 0 {
 		// releast and wait
-		skel.cvr.Wait()
+		skel.getcv.Wait()
 	}
 
 	// at this point there is at least one item in the queue
-	// ==> get from the head
-	value = something
-	skel.length--
+	// ==> get from the head and decrement length
+	value = 0
+
+	// signal a Put to wake up
+	skel.putcv.Signal()
 
 	return value
 }
@@ -299,18 +305,20 @@ func (skel *Skeleton) TryGet() (interface{}, error) {
 	var err error
 
 	// lock the mutex
-	skel.cvr.L.Lock()
-	defer skel.cvr.L.Unlock()
+	skel.getcv.L.Lock()
+	defer skel.getcv.L.Unlock()
 
 	// does the queue have elements?
 	if skel.length > 0 {
-		// ==> get from the head
-		value = something
-		skel.length--
+		// ==> get from the head and decrement length
+		value = 0
 	} else {
 		value = nil
 		err = errors.New("queue is empty");
 	}
+
+	// signal a Put to wake up
+	skel.putcv.Signal()
 
 	// unlock the mutex
 	return value, err
@@ -324,6 +332,28 @@ func (skel *Skeleton) Len() int {
 // Cap is the maximum number of elements the queue can hold
 func (skel *Skeleton) Cap() int {
 	return skel.capacity
+}
+
+// String
+func (skel *Skeleton) String() string {return ""}
+
+// NewSkeletonQueue is a factory for creating bounded queues
+// that use a condition variable and circular buffer. It returns
+// an instance of pointer to BoundedQueue
+func NewSkeletonQueue(size int) BoundedQueue {
+	var skel Skeleton
+
+	// allocate the whole slice during init
+	skel.length = 0
+	skel.capacity = size
+	skel.mtx = sync.Mutex{}
+
+	// both condition variables get the same mutex
+	// but wakeups go from put to get and vice versa
+	skel.putcv = sync.NewCond(&skel.mtx)
+	skel.getcv = sync.NewCond(&skel.mtx)
+
+	return &skel
 }
 
 ```
@@ -343,10 +373,12 @@ See file **queue_list.go**.
 		cvr *sync.Cond      // a condition variable for controlling mutations to the queue
 	}
 
-	// enqueueing a value, used in Put and TryPut
+	// in this case the list.List keeps track of its current length
+
+	// ==> PUT : add to the tail and increment length
 	lsq.queue.PushBack(value)
 
-	// dequeuing a value , used in Get and TryGet
+	// ==> GET : get from the head and decrement length
 	value := lsq.queue.Remove(lsq.queue.Front())
 
 ```
@@ -367,12 +399,12 @@ type CircularQ struct {
 }
 
 
-	// enqueueing a value, used in Put and TryPut
+	// ==> PUT : add to the tail and increment length
 	cir.queue[cir.tail] = value
 	cir.tail = (cir.tail+1) % cir.capacity
 	cir.length++
 
-	// dequeuing a value , used in Get and TryGet
+	// ==> GET : get from the head and decrement length
 	value := cir.queue[cir.head]
 	cir.head = (cir.head + 1)  % cir.capacity
 	cir.length--
@@ -395,12 +427,12 @@ This version uses a circular buffer as the queue data structure. It is almost id
 		cvr *sync.Cond       // a condition variable for controlling mutations to the queue
 	}
 
-	// enqueueing a value, used in Put and TryPut
+	// ==> PUT : add to the tail and increment length
 	nvq.queue[nvq.tail] = value
 	nvq.tail = (nvq.tail+1) % nvq.capacity
 	nvq.length++
 
-	// dequeuing a value , used in Get and TryGet
+	// ==> GET : get from the head and decrement length
 	value := nvq.queue[nvq.head]
 	nvq.head = (nvq.head + 1)  % nvq.capacity
 	nvq.length--
@@ -426,4 +458,19 @@ The file **queue_test.go** uses the Go native test framework to exercise the imp
 - async2
   - identical to async1 with the exception it only tests the NativeIntQ.
 
-### Analysis
+### Tests
+
+#### Synchronous Tests
+
+The file **sync_test.go** contains tests where non-blocking TryPut's and TryGet's are performed in a single goroutine environment. These provide a test that the basic Try operations seem to work. They also test the capacity and length limits of the queues. There is no blocking in these tests.
+
+As of this writing, all the synchronous tests pass.
+$go test -v .
+
+#### Asynchronous Tests
+
+The file **async_test.go** contains tests where blocking Put's and Get's are performed in separate goroutines, one as a producer, one as a consumer. There are two versions of the tests, one where the Put and Get loops have no delays in them. The second is similar but with a random delay before each Put and Get. Intended to check that the blocking and wakeups are working properly.
+
+#### Benchmarks
+
+The file **benchmark_test.go** contains tests both synchronous and asynchronous version similar to the Async tests, but intended to be used as benchmarks for timing and memory usage.

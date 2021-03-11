@@ -1,12 +1,12 @@
 ---
 title: "Bounded Queue in Golang"
-date: 2021-03-01
-slug: "/bqchapter1"
+date: 2021-03-12
+slug: "/boundedqueue"
 ---
 
-### Bounded Queue in Golang
+## Bounded Queue in Golang
 
-#### Queue
+### Queue
 
 For the purposes of this article, a queue is a data structure with first-in/first-out (FIFO) semantics.
 A generic queue typically has more or less the following methods:
@@ -29,7 +29,7 @@ in the queue or returns an indication that the queue is full, without blocking.
 Likewise there can be a tryGet method that returns an element or
 an indication the queue is empty.
 
-##### Why have a bound?
+#### Why have a bound?
 
 Its possible to have an unbounded queue that never gets full.
 Using dynamic allocation you could implement an unbounded queue. In C++
@@ -60,43 +60,56 @@ between check it and doing the operation. The non-blocking operations need to be
 atomic with respect to the client code.
 
 ```go
-{
-  // BoundedQueue is a FIFO queue with a bound on the number of elements in the queue
-  type  BoundedQueue interface {
+// BoundedQueue is a FIFO queue with a bound on the number of elements in the queue
+type  BoundedQueue interface {
 
+	// add an element onto the tail queue
+	// if the queue is full, an error is returned
+ 	Put(value interface{})
 
-    // PutB: add an element onto the tail queue, blocking
-    // if the queue is full, the method returns an error
-    Put(value interface{}) error
+	// add an element onto the tail queue
+	// if the queue is full the call blocks
+	TryPut(value interface{}) error
 
-    // get an element from the head of the queue
-    // if the queue is empty the get'er blocks
-    Get() interface{}
+	// get an element from the head of the queue
+	// if the queue is empty the get'er blocks
+	Get() interface{}
 
-    // try to get an element from the head of the queue
-    // if the queue is empty an error is returned
-    GetNB() interface{}
+	// try to get an element from the head of the queue
+	// if the queue is empty an error is returned
+	TryGet() (interface{}, error)
 
-    // current number of elements in the queue
-    Len() int
+	// current number of elements in the queue
+ 	Len() int
 
-    // capacity maximum number of elements the queue can hold
-    Cap() int
+	// capacity maximum number of elements the queue can hold
+	Cap() int
 
-    // string representation
-    fmt.Stringer
-  }
+	// string representation
+	fmt.Stringer
 }
 ```
 
-#### Mechanisms, Code and Analysis
+### Mechanisms
 
-This and subsequent chapters will explore various mechanisms for
-concrete implementations of the BoundedQueue interface.
-Each will include implementation and test code, as well as
-some performance analysis.
+There are three implementations of the BoundedQueue interface. For these three, the data elements are interface{} so any type can be used. This matches some of the approaches in the standard library for certain data structures. These three implementations can be passed to any function needed a BoundedQueue.
 
-### Bounded Queue Using Channels
+- ChannelQ
+  - queue using a channel
+- ListQ
+  - queue using a container/list with mutex/condition variable
+- CircularQ
+  - queue using a circular buffer with mutex/condition variable
+
+There is one additional implementation that matches the BoundedQueue interface in which the data type is a native 'int'. It uses the circular buffer approach but since its not using interface{} it might have better performance. The analysis will tell us that.
+
+- NativeIntQ
+  - queue using a circular buffer with mutex/condition variable
+  - typesafe for 'int'
+
+All four are implemented to find out the memory and cpu performance of the different approaches.
+
+#### Bounded Queue Using Channels
 
 Of course, in the Go language, there are buffered channels, which literally
 are bounded queues. If you aren't familiar with Go channels, search
@@ -124,16 +137,293 @@ is just a wrapper around the build-in channel syntax.
     - if there is room in the channel, add the element
   - If the queue is full, take the default path
 
-### Bounded Queue(s) Using Mutex/Condition Variable
+See file **queue_channel.go**.
+
+```go
+	type ChannelQ struct {
+		channel chan interface{} // buffered channel with specified capacity
+	}
+
+	// enqueueing a value, used in Put and TryPut
+	chq.channel <- value:
+
+	// dequeuing a value , used in Get and TryGet
+	value <- chq.channel
+
+```
+
+#### Bounded Queue(s) Using Mutex/Condition Variable
 
 In a course I took and also things I saw online recommended avoiding using channels as queues and instead suggested using mutex and condition variables along with appropriate data structures. The implementations of all three of these are similar with respect to the mutual exclusion required. The only difference is what data structure was used.
 
+##### Mutex/Condition Variable
+
+A Condition Variable is a synchronization object that allow threads to wait until a condition occurs. It does this in conjunction with a Mutex to provide mutual exclusion. The implemenation of a interthread queue is a typical usage of a Mutex/Condition variable pair.
+
+In the Go language, the standard libary package 'sync' provides both _Mutex_ and _Cond_. It works like this:
+
+```go
+
+// declare a Mutex and A Cond
+var mtx sync.Mutex
+var cvr *sync.Cond
+
+// initialize them
+mtx = sync.Mutex{}
+cvr = sync.NewCond(&mtx)
+// the mutex is attached to the condition variable and after that
+// it is accessed through the L.Lock() and L.Unlock() functions
+
+// a function that responds if a condition is fulfilled
+func f(cvr *sync.Cond) {
+	// lock the mutex
+	cvr.L.Lock()
+
+	// make sure the mutex is unlocked when the function returns
+	defer cvr.L.Unlock()
+
+	// the mutex is locked at this point so its thread safe
+	// to manipulate the data structure or resource
+
+	// while some condition is not true, execute the loop
+	for condition == false {
+		// this function unlocks the associated mutex
+		// and blocks the goroutine on the condition variable
+		// It will wake up if some other goroutine calls Signal
+		// on the condition variable
+		cvr.Wait()
+	}
+
+	// the mutex is locked at this point so its thread safe
+	// to manipulate the data structure or resource
+
+	// the condition is now true, so do whatever is needed
+
+	// signal a waiter if any
+	// this wakes up one other goroutine that is blocked on the
+	// condition variable. There is also Broadcast which will
+	// wake up all goroutines waiting on the condition variable
+	cvr.Signal()
+
+	// the defer unlock releases the mutex
+}
+```
+
+#### Skeleton Of Implementation
+
 Here's a skeleton of the code used in all three implementations minus the data structure use.
+
+```go
+type Skeleton struct {
+	// -- some data structure for backing the queue
+	length   int
+	capacity int
+	mtx sync.Mutex      // a mutex for mutual exclusion
+	cvr *sync.Cond       // a condition variable for controlling mutations to the queue
+}
+
+// TryPut adds an element onto the tail queue
+// if the queue is full, an error is returned
+func (skel *Skeleton) TryPut(value interface{}) error {
+	// lock the mutex
+	skel.cvr.L.Lock();
+	defer skel.cvr.L.Unlock()
+
+	// is queue full ?
+	if skel.length == skel.capacity {
+		// return an error
+		e := errors.New("queue is full")
+		return e;
+	}
+
+	// queue had room, add it at the tail
+	// ==> add to the tail
+	skel.length++
+
+	// signal a waiter if any
+	skel.cvr.Signal()
+
+	// no error
+	return nil
+}
+
+// Put adds an element onto the tail queue
+// if the queue is full the function blocks
+func (skel *Skeleton) Put(value interface{})  {
+	// lock the mutex
+	skel.cvr.L.Lock()
+	defer skel.cvr.L.Unlock()
+
+
+	// block until a value is in the queue
+	for skel.length == skel.capacity {
+		// releast and wait
+		skel.cvr.Wait()
+	}
+
+	// queue has room, add it at the tail
+	// ==> add to the tail
+	skel.length++
+
+	// signal a waiter if any
+	skel.cvr.Signal()
+}
+
+// Get returns an element from the head of the queue
+// if the queue is empty,the caller blocks
+func (skel *Skeleton) Get() interface{} {
+	var value interface{}
+
+	// lock the mutex
+	skel.cvr.L.Lock()
+	defer skel.cvr.L.Unlock()
+
+	// block until a value is in the queue
+	for skel.length == 0 {
+		// releast and wait
+		skel.cvr.Wait()
+	}
+
+	// at this point there is at least one item in the queue
+	// ==> get from the head
+	value = something
+	skel.length--
+
+	return value
+}
+
+// TryGet attempts to get a value
+// if the queue is empty returns an error
+func (skel *Skeleton) TryGet() (interface{}, error) {
+	var value interface{}
+	var err error
+
+	// lock the mutex
+	skel.cvr.L.Lock()
+	defer skel.cvr.L.Unlock()
+
+	// does the queue have elements?
+	if skel.length > 0 {
+		// ==> get from the head
+		value = something
+		skel.length--
+	} else {
+		value = nil
+		err = errors.New("queue is empty");
+	}
+
+	// unlock the mutex
+	return value, err
+}
+
+// Len is the current number of elements in the queue
+func (skel *Skeleton) Len() int {
+	return skel.length
+}
+
+// Cap is the maximum number of elements the queue can hold
+func (skel *Skeleton) Cap() int {
+	return skel.capacity
+}
+
+```
 
 #### Bounded Queue Using container/list with interface{}
 
-My first approach was to use a List from container/list. Many queue implementations you found will use a list or similar construct. This would probably be a good solution for an unbounded queue where memory requirements aren't know up front. The memory and cpu analysis will show that this isn't the best way to go if you have a bound.
+In this implementation the container/list data structure is used. In hindsight using a List is probably not the best approach since the queue is bounded so it doesn't need the flexibility of a List to shrink and grow. We'll see in the analysis.
+
+See file **queue_list.go**.
+
+```go
+
+	type ListQ struct {
+		queue *list.List	// contains the elements currently in the queue
+		capacity int	    // maximum number of elements the queue can hold
+		mtx sync.Mutex      // a mutex for mutual exclusion
+		cvr *sync.Cond      // a condition variable for controlling mutations to the queue
+	}
+
+	// enqueueing a value, used in Put and TryPut
+	lsq.queue.PushBack(value)
+
+	// dequeuing a value , used in Get and TryGet
+	value := lsq.queue.Remove(lsq.queue.Front())
+
+```
 
 #### Bounded Queue Using circular buffer with interface{}
 
+This version uses a circular buffer as the queue data structure. Just guessing it should have better performance than the list. However it still uses interface{} for data elements so it might have some overhead for that vs a native data type.
+
+```go
+type CircularQ struct {
+	queue []interface{}
+	head     int
+	tail     int
+	length   int
+	capacity int
+	mtx sync.Mutex      // a mutex for mutual exclusion
+	cvr *sync.Cond       // a condition variable for controlling mutations to the queue
+}
+
+
+	// enqueueing a value, used in Put and TryPut
+	cir.queue[cir.tail] = value
+	cir.tail = (cir.tail+1) % cir.capacity
+	cir.length++
+
+	// dequeuing a value , used in Get and TryGet
+	value := cir.queue[cir.head]
+	cir.head = (cir.head + 1)  % cir.capacity
+	cir.length--
+}
+```
+
 #### Bounded Queue Using circular with native ints
+
+This version uses a circular buffer as the queue data structure. It is almost identical to the previous circular buffer version with the exception it only supports 'int' elements. I'm guessing that this may be a bit faster than the empty interface version
+
+```go
+
+	type NativeIntQ struct {
+		queue []int
+		head     int
+		tail     int
+		length   int
+		capacity int
+		mtx sync.Mutex      // a mutex for mutual exclusion
+		cvr *sync.Cond       // a condition variable for controlling mutations to the queue
+	}
+
+	// enqueueing a value, used in Put and TryPut
+	nvq.queue[nvq.tail] = value
+	nvq.tail = (nvq.tail+1) % nvq.capacity
+	nvq.length++
+
+	// dequeuing a value , used in Get and TryGet
+	value := nvq.queue[nvq.head]
+	nvq.head = (nvq.head + 1)  % nvq.capacity
+	nvq.length--
+
+```
+
+### Testing
+
+The file **queue_test.go** uses the Go native test framework to exercise the implementations.
+
+#### Synchronous test
+
+- sync1
+  - a synchronous test, where the Gets and Puts are all done within a single coroutine. This test is intended to test the bounds of Puts and Gets. It doesn't exercise the blocking semantics.
+  - This version accepts any object that implements the BoundedQueue interface
+- sync2
+  - identical to 'sync1' with the exception it only test the NativeIntQ.
+- async1
+  - an asynchronous test with two goroutines.
+  - a producer using blocking Puts
+  - a consumer using blocking Gets
+  - This version accepts any object that implements the BoundedQueue interface
+- async2
+  - identical to async1 with the exception it only tests the NativeIntQ.
+
+### Analysis

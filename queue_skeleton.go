@@ -14,15 +14,16 @@ type Skeleton struct {
 	length   int
 	capacity int
 	mtx sync.Mutex      // a mutex for mutual exclusion
-	cvr *sync.Cond       // a condition variable for controlling mutations to the queue
+	putcv *sync.Cond    // a condition variable for controlling Puts
+	getcv *sync.Cond    // a condition variable for controlling Gets
 }
 
 // TryPut adds an element onto the tail queue
 // if the queue is full, an error is returned
 func (skel *Skeleton) TryPut(value interface{}) error {
-	// local the mutex
-	skel.cvr.L.Lock();
-	defer skel.cvr.L.Unlock()
+	// lock the mutex
+	skel.putcv.L.Lock();
+	defer skel.putcv.L.Unlock()
 
 	// is queue full ?
 	if skel.length == skel.capacity {
@@ -32,11 +33,11 @@ func (skel *Skeleton) TryPut(value interface{}) error {
 	}
 
 	// queue had room, add it at the tail
-	// -- add to the tail
+	// ==> add to the tail
 	skel.length++
 
-	// signal a waiter if any
-	skel.cvr.Signal()
+	// signal a Get to wake up
+	skel.getcv.Signal()
 	
 	// no error
 	return nil
@@ -45,23 +46,23 @@ func (skel *Skeleton) TryPut(value interface{}) error {
 // Put adds an element onto the tail queue
 // if the queue is full the function blocks
 func (skel *Skeleton) Put(value interface{})  {
-	// local the mutex
-	skel.cvr.L.Lock()
-	defer skel.cvr.L.Unlock()
+	// lock the mutex
+	skel.putcv.L.Lock()
+	defer skel.putcv.L.Unlock()
 
 
 	// block until a value is in the queue
 	for skel.length == skel.capacity {
 		// releast and wait
-		skel.cvr.Wait()
+		skel.putcv.Wait()
 	}
 	
 	// queue has room, add it at the tail
 	// -- add to the tail
 	skel.length++
 
-	// signal a waiter if any
-	skel.cvr.Signal()
+	// signal a Get to wake up
+	skel.getcv.Signal()
 } 
 
 // Get returns an element from the head of the queue
@@ -70,19 +71,22 @@ func (skel *Skeleton) Get() interface{} {
 	var value interface{}
 
 	// lock the mutex
-	skel.cvr.L.Lock()
-	defer skel.cvr.L.Unlock()
+	skel.getcv.L.Lock()
+	defer skel.getcv.L.Unlock()
 
 	// block until a value is in the queue
 	for skel.length == 0 {
 		// releast and wait
-		skel.cvr.Wait()
+		skel.getcv.Wait()
 	}
 
 	// at this point there is at least one item in the queue
 	// -- get from the head
 	value = 0
 	skel.length--
+
+	// signal a Put to wake up
+	skel.putcv.Signal()
 
 	return value
 }
@@ -94,8 +98,8 @@ func (skel *Skeleton) TryGet() (interface{}, error) {
 	var err error
 
 	// lock the mutex
-	skel.cvr.L.Lock()
-	defer skel.cvr.L.Unlock()
+	skel.getcv.L.Lock()
+	defer skel.getcv.L.Unlock()
 
 	// does the queue have elements?
 	if skel.length > 0 {
@@ -106,6 +110,9 @@ func (skel *Skeleton) TryGet() (interface{}, error) {
 		value = nil
 		err = errors.New("queue is empty");
 	}
+
+	// signal a Put to wake up
+	skel.putcv.Signal()
 	
 	// unlock the mutex
 	return value, err
@@ -133,8 +140,12 @@ func NewSkeletonQueue(size int) BoundedQueue {
 	// allocate the whole slice during init
 	skel.length = 0
 	skel.capacity = size
-	skel.mtx = sync.Mutex{} // unlock mutex
-	skel.cvr = sync.NewCond(&skel.mtx)
+	skel.mtx = sync.Mutex{} 
+
+	// both condition variables get the same mutex
+	// but wakeups go from put to get and vice versa
+	skel.putcv = sync.NewCond(&skel.mtx)
+	skel.getcv = sync.NewCond(&skel.mtx)
 
 	return &skel
 }

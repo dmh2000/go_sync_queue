@@ -27,7 +27,7 @@ func b1(b *testing.B, q BoundedQueue) {
 	}
 }
 
-func b2(b *testing.B, q *NativeInt) {
+func b2(b *testing.B, q *NativeIntQ) {
 
 	for k:=0;k<b.N;k++ {
 		// fill the queue with ints

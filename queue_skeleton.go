@@ -33,7 +33,8 @@ func (skel *Skeleton) TryPut(value interface{}) error {
 	}
 
 	// queue had room, add it at the tail
-	// ==> add to the tail and increment length
+	// ==> enqueueing a value
+	// ...
 
 	// signal a Get to wake up
 	skel.getcv.Signal()
@@ -52,12 +53,14 @@ func (skel *Skeleton) Put(value interface{})  {
 
 	// block until a value is in the queue
 	for skel.length == skel.capacity {
-		// releast and wait
+		// release and wait
 		skel.putcv.Wait()
 	}
 	
 	// queue has room, add it at the tail
-	// ==> add to the tail and increment length
+	// ==> enqueueing a value
+	// ...
+
 
 	// signal a Get to wake up
 	skel.getcv.Signal()
@@ -74,12 +77,13 @@ func (skel *Skeleton) Get() interface{} {
 
 	// block until a value is in the queue
 	for skel.length == 0 {
-		// releast and wait
+		// release and wait
 		skel.getcv.Wait()
 	}
 
 	// at this point there is at least one item in the queue
-	// ==> get from the head and decrement length
+	// ==> dequeuing a value
+	// ...
 	value = 0
 
 	// signal a Put to wake up
@@ -100,7 +104,8 @@ func (skel *Skeleton) TryGet() (interface{}, error) {
 
 	// does the queue have elements?
 	if skel.length > 0 {
-		// ==> get from the head and decrement length
+		// ==> dequeuing a value
+		// ...
 		value = 0
 	} else {
 		value = nil
@@ -122,6 +127,11 @@ func (skel *Skeleton) Len() int {
 // Cap is the maximum number of elements the queue can hold
 func (skel *Skeleton) Cap() int {
 	return skel.capacity
+}
+
+// Close handles any required cleanup
+func (skel *Skeleton) Close() {
+	// noop
 }
 
 // String

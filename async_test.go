@@ -22,6 +22,13 @@ func producer1(q BoundedQueue, wg *sync.WaitGroup) {
 		q.Put(i)
 	}
 
+	// cleanup 
+	// for channels, this closes it for further Puts
+	// any remaing data is still available for Gets
+	// it is a noop for the mutex/condition variable methods
+	q.Close()
+
+	// mark it done
 	wg.Done()
 }
 
@@ -66,6 +73,13 @@ func producer3(q BoundedQueue, wg *sync.WaitGroup) {
 		q.Put(i)
 	}
 
+	// cleanup 
+	// for channels, this closes it for further Puts
+	// any remaing data is still available for Gets
+	// it is a noop for the mutex/condition variable methods
+	q.Close()
+	
+	// mark it done
 	wg.Done()
 }
 

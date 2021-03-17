@@ -72,6 +72,12 @@ func (chq *ChannelQ) Cap() int {
 	return cap(chq.channel)
 }
 
+// Close required to close the channel so it doesn't leak
+// should only be called by Put threads
+func (chq *ChannelQ) Close() {
+	close(chq.channel)
+}
+
 // String
 func (chq *ChannelQ) String() string {
 	return fmt.Sprintf("Channel Len:%v Cap:%v",chq.Len(),chq.Cap())

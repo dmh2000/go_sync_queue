@@ -50,6 +50,12 @@ func sync1(t *testing.T, q BoundedQueue) {
 		t.Error("length should == sqsize")
 	}
 
+	// cleanup 
+	// for channels, this closes it for further Puts
+	// any remaing data is still available for Gets
+	// it is a noop for the mutex/condition variable methods
+	q.Close()
+
 	// remove all items. no need to block
 	j := q.Len() - 1
 	for i:=0;i<q.Cap();i++ {
@@ -117,6 +123,12 @@ func sync2(t *testing.T, q *NativeIntQ) {
 	if q.Len() != sqsize {
 		t.Error("length should == sqsize")
 	}
+
+	// cleanup 
+	// for channels, this closes it for further Puts
+	// any remaing data is still available for Gets
+	// it is a noop for the mutex/condition variable methods
+	q.Close()
 
 	// remove all items
 	j := q.Len() - 1

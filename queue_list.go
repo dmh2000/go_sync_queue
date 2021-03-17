@@ -30,7 +30,7 @@ func (lsq *ListQ) Put(value interface{})  {
 
 	// block until a value is in the queue
 	for lsq.queue.Len() == lsq.capacity {
-		// releast and wait
+		// release and wait
 		lsq.putcv.Wait()
 	}
 	
@@ -74,7 +74,7 @@ func (lsq *ListQ) Get() interface{} {
 
 	// block until a value is in the queue
 	for lsq.queue.Len() == 0 {
-		// releast and wait
+		// release and wait
 		lsq.getcv.Wait()
 	}
 
@@ -119,6 +119,11 @@ func (lsq *ListQ) Len() int {
 // Cap is the maximum number of elements the queue can hold
 func (lsq *ListQ) Cap() int {
 	return lsq.capacity;
+}
+
+// Close handles any required cleanup
+func (lsq *ListQ) Close() {
+	// noop
 }
 
 // String

@@ -57,7 +57,7 @@ func (cir *CircularQ) Put(value interface{})  {
 
 	// block until a value is in the queue
 	for cir.length == cir.capacity {
-		// releast and wait
+		// release and wait
 		cir.putcv.Wait()
 	}
 	
@@ -79,7 +79,7 @@ func (cir *CircularQ) Get() interface{} {
 
 	// block until a value is in the queue
 	for cir.length == 0 {
-		// releast and wait
+		// release and wait
 		cir.getcv.Wait()
 	}
 
@@ -130,6 +130,11 @@ func (cir *CircularQ) Len() int {
 // Cap is the maximum number of elements the queue can hold
 func (cir *CircularQ) Cap() int {
 	return cap(cir.queue)
+}
+
+// Close handles any required cleanup
+func (cir *CircularQ) Close() {
+	// noop
 }
 
 // String

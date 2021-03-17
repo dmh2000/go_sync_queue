@@ -56,7 +56,7 @@ func (nvq *NativeIntQ) Put(value int)  {
 
 	// block until a value is in the queue
 	for nvq.length == nvq.capacity {
-		// releast and wait
+		// release and wait
 		nvq.putcv.Wait()
 	}
 	
@@ -79,7 +79,7 @@ func (nvq *NativeIntQ) Get() int {
 
 	// block until a value is in the queue
 	for nvq.length == 0 {
-		// releast and wait
+		// release and wait
 		nvq.getcv.Wait()
 	}
 
@@ -129,6 +129,11 @@ func (nvq *NativeIntQ) Len() int {
 // Cap is the maximum number of elements the queue can hold
 func (nvq *NativeIntQ) Cap() int {
 	return cap(nvq.queue)
+}
+
+// Close is for cleanup
+func (nvq *NativeIntQ) Close() {
+	// noop
 }
 
 // String

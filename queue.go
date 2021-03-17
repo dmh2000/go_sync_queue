@@ -27,6 +27,9 @@ type  BoundedQueue interface {
 	// capacity maximum number of elements the queue can hold
 	Cap() int
 
+	// close any resources (required for channel version)
+	Close()
+	
 	// string representation
 	fmt.Stringer
 }

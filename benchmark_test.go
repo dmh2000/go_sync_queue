@@ -67,14 +67,21 @@ func BenchmarkQueueChannelSync(b *testing.B) {
 func BenchmarkListSync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		b1(b,NewListQueue(bqsize))
+		b1(b,NewSyncList(bqsize))
 	}
 }
 
 func BenchmarkCircularSync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		b1(b,NewCircularQueue(bqsize))
+		b1(b,NewSyncCircular(bqsize))
+	}
+}
+
+func BenchmarkRingSync(b *testing.B) {
+	// using condition variable queue
+	for i:=0;i<b.N;i++ {
+		b1(b,NewSyncRing(bqsize))
 	}
 }
 
@@ -164,14 +171,21 @@ func BenchmarkQueueChannelAsync(b *testing.B) {
 func BenchmarkListAsync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		asyncb1(b,NewListQueue(bqsize))
+		asyncb1(b,NewSyncList(bqsize))
 	}
 }
 
 func BenchmarkCircularAsync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		asyncb1(b,NewCircularQueue(bqsize))
+		asyncb1(b,NewSyncCircular(bqsize))
+	}
+}
+
+func BenchmarkRingAsync(b *testing.B) {
+	// using condition variable queue
+	for i:=0;i<b.N;i++ {
+		asyncb1(b,NewSyncRing(bqsize))
 	}
 }
 

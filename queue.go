@@ -33,3 +33,18 @@ type  BoundedQueue interface {
 	// string representation
 	fmt.Stringer
 }
+
+// Queue - interface for a simple, non-thread-safe queue
+type Queue interface {
+	// current number of elements in the queue
+	Len() int
+
+	// maximum number of elements allowed in queue
+	Cap() int
+
+	// enqueue a value on the tail of the queue
+	Push(value interface{})  error
+
+	// dequeue and return a value from the head of the queue
+	Pop() (interface{},error)
+}

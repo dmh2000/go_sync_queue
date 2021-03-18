@@ -132,12 +132,22 @@ func TestChannelAsync(t *testing.T) {
 }
 
 func TestListAsync(t *testing.T) {
-	async1(t,NewListQueue(aqsize))
-	async3(t,NewListQueue(aqsize))
+	async1(t,NewSyncList(aqsize))
+	async3(t,NewSyncList(aqsize))
 }
 func TestCircularAsync(t *testing.T) {
-	async1(t,NewCircularQueue(aqsize))
-	async3(t,NewCircularQueue(aqsize))
+	async1(t,NewSyncCircular(aqsize))
+	async3(t,NewSyncCircular(aqsize))
+}
+
+func TestRingAsync(t *testing.T) {
+	async1(t,NewSyncRing(aqsize))
+	async3(t,NewSyncRing(aqsize))
+}
+
+func TestComboAsync(t *testing.T) {
+	async1(t,NewSyncCircular(aqsize))
+	async3(t,NewSyncList(aqsize))
 }
 
 func TestNativeAsync(t *testing.T) {

@@ -163,28 +163,35 @@ func TestChannelSync(t *testing.T) {
 	sync1(t,NewChannelQueue(sqsize))
 }
 
-// LIST
-func TestListSync(t *testing.T) {
-	// using condition variable queue
-	sync1(t,NewListQueue(sqsize))
-}
-
-// CIRCULAR BUFFER
-func TestCircularSync(t *testing.T) {
-	// using condition variable queue
-	sync1(t,NewCircularQueue(sqsize))
-}
-
 // NATIVE QUEUE
 func TestQueueNativeSync(t *testing.T) {
 	// using condition variable queue
 	sync2(t,NewNativeQueue(sqsize))
 }
 
+
+// CIRCULAR BUFFER using SynchronizedBoundedQueue wrapper
+func TestCircularBufferSync(t *testing.T) {
+	// using condition variable queue
+	sync1(t,NewSyncCircular(sqsize))
+}
+
+// LIST QUEUE using SynchronizedBoundedQueue wrapper
+func TestListSync(t *testing.T) {
+	// using condition variable queue
+	sync1(t,NewSyncList(sqsize))
+}
+
+// RING QUEUE using SynchronizedBoundedQueue wrapper
+func TestRingSync(t *testing.T) {
+	// using condition variable queue
+	sync1(t,NewSyncRing(sqsize))
+}
+
 // Strings
 func TestQueueStrings(t *testing.T) {
 	fmt.Println(NewChannelQueue(sqsize))
-	fmt.Println(NewListQueue(sqsize))
-	fmt.Println(NewCircularQueue(sqsize))
 	fmt.Println(NewNativeQueue(sqsize))
+	fmt.Println(NewSyncCircular(sqsize))
+	fmt.Println(NewSyncList(sqsize))
 }

@@ -11,7 +11,7 @@ import (
 var bqsize int = 20
 
 
-func b1(b *testing.B, q BoundedQueue) {
+func b1(b *testing.B, q SynchronizedQueue) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		var x interface{}
@@ -100,7 +100,7 @@ func BenchmarkQueueNativeSync(b *testing.B) {
 // ==================
 
 // - blocking with no delays
-func producer1a(q BoundedQueue, wg *sync.WaitGroup) {
+func producer1a(q SynchronizedQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		q.Put(i)
@@ -109,7 +109,7 @@ func producer1a(q BoundedQueue, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func consumer1a(q BoundedQueue, b *testing.B, wg *sync.WaitGroup)  {
+func consumer1a(q SynchronizedQueue, b *testing.B, wg *sync.WaitGroup)  {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
 		value := q.Get()
@@ -143,7 +143,7 @@ func consumer2a(q *NativeIntQ, b *testing.B, wg *sync.WaitGroup) {
 }
 
 
-func asyncb1(b *testing.B, q BoundedQueue) {
+func asyncb1(b *testing.B, q SynchronizedQueue) {
 	var wg sync.WaitGroup
 
 	wg.Add(2)

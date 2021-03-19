@@ -5,7 +5,9 @@ import (
 	"errors"
 )
 
-// ListQueue - a Queue backed by a container/list
+// ListQueue backed by container/list
+// the container/list data structure supports the semantics and methods
+// needed for the Queue interface, with the exception of a capacity.
 type ListQueue struct {
 	list *list.List	 // contains the elements currently in the queue
 	capacity int	     // maximum number of elements the queue can hold
@@ -47,13 +49,13 @@ func NewListQueue(cap int) Queue {
 	return &lq
 }
 
-func NewSyncList(cap int) BoundedQueue {
+func NewSyncList(cap int) SynchronizedQueue {
 	var lq Queue
-	var bq BoundedQueue 
+	var bq SynchronizedQueue 
 
 	lq = NewListQueue(cap)
 
-	bq = NewQueueSync(lq) 
+	bq = NewSynchronizedQueue(lq) 
 
 	return bq
 }

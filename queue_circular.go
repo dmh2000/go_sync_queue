@@ -5,23 +5,23 @@ import (
 )
 
 // Implementation of Queue interface using circular buffer
-type CircularBuffer struct {
-	queue []interface{}
-	head     int
-	tail     int
-	length   int
-	capacity int
+type CircularQueue struct {
+	queue []interface{}	// data
+	head     int		// items are pulled from the head
+	tail     int		// items are pushed to the tail
+	length   int		// current number of elements in the queue
+	capacity int	    // maximum allowed elements total
 }
 
-func (cb *CircularBuffer) Len() int {
+func (cb *CircularQueue) Len() int {
 	return cb.length
 }
 
-func (cb *CircularBuffer) Cap() int {
+func (cb *CircularQueue) Cap() int {
 	return cb.capacity
 }
 
-func (cb *CircularBuffer) Push(value interface{}) error {
+func (cb *CircularQueue) Push(value interface{}) error {
 	if cb.length >= cb.capacity {
 		return errors.New("queue is full")
 	}
@@ -33,7 +33,7 @@ func (cb *CircularBuffer) Push(value interface{}) error {
 	return nil
 }
 
-func (cb *CircularBuffer) Pop() (interface{}, error) {
+func (cb *CircularQueue) Pop() (interface{}, error) {
 	if cb.length == 0 {
 		return nil, errors.New("queue is empty)")
 	}
@@ -44,8 +44,8 @@ func (cb *CircularBuffer) Pop() (interface{}, error) {
 	return value,nil
 }
 
-func NewCircularBuffer(cap int) Queue {
-	var cq CircularBuffer
+func NewCircularQueue(cap int) Queue {
+	var cq CircularQueue
 
 	cq.length = 0
 	cq.capacity = cap
@@ -56,13 +56,13 @@ func NewCircularBuffer(cap int) Queue {
 	return &cq
 }
 
-func NewSyncCircular(cap int) BoundedQueue {
+func NewSyncCircular(cap int) SynchronizedQueue {
 	var cq Queue
-	var bq BoundedQueue 
+	var bq SynchronizedQueue 
 
-	cq = NewCircularBuffer(cap)
+	cq = NewCircularQueue(cap)
 
-	bq = NewQueueSync(cq) 
+	bq = NewSynchronizedQueue(cq) 
 
 	return bq
 }

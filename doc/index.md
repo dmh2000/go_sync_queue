@@ -1,10 +1,10 @@
 ---
-title: "Bounded Queue in Golang"
+title: "Synchronized Queues in Golang"
 date: 2021-03-12
-slug: "/boundedqueue"
+slug: "/syncqueue"
 ---
 
-## Bounded Queue in Golang
+## Synchronized Queue in Golang
 
 All code files are in Github at [dmh2000/golang-bounded-queue](https://github.com/dmh2000/golang-bounded-queue)
 
@@ -21,7 +21,7 @@ A generic queue typically has more or less the following methods:
 
 A bounded queue is one that also has a 'capacity'. In that case, the queue is set up to contain a fixed number of elements.
 
-Queues are used in various algorithms, such as breadth first search. Another common use of a queue is to provide a means of communication between threads. If a queue is used for that purpose, then it may have blocking semantics. The 'get' method may block if the queue is empty. The 'put' method may block if the queue is full. If that is how it works, then there can be a tryPut method that adds an element if there is room in the queue or returns an indication that the queue is full, without blocking. Likewise there can be a tryGet method that returns an element or an indication the queue is empty. Of course in Go you have buffered channels, which are effectively queues with blocking and non-blocking support.
+Queues are used in various algorithms, such as breadth first search. Another common use of a queue is to provide a means of communication between threads. If a queue is used for that purpose, then it may have blocking semantics. The 'get' method may block if the queue is empty. The 'put' method may block if the queue is full. If that is how it works, then there can be a TryPut method that adds an element if there is room in the queue or returns an indication that the queue is full, without blocking. Likewise there can be a TryGet method that returns an element or an indication the queue is empty. Of course in Go you have buffered channels, which are effectively queues with blocking and non-blocking support.
 
 Typically, if a queue is used for communication between threads it is expected to live for the life of the program. It gets tricky if interthread queues are to be created and discarded over the life of execution. This can lead to memory leaks and threads hung on blocking Get's or Put's if care is not taken to make sure all goroutines are released from the queue before sending it go garbage collection. The code here doesn't detect or handle that case. It is up to the application to clean up.
 
@@ -29,26 +29,77 @@ Typically, if a queue is used for communication between threads it is expected t
 
 Its possible to have an unbounded queue that never gets full. Using dynamic allocation you could implement an unbounded queue. In C++ a list or vector can grow until there is no available memroy. In Go, the container/list object has no bound on its number of elements. These are unbounded until you run out of memory. There is always an implicit bound. You might want to bound a queue as a type of throttling. Say a system has processing power that can only support N things going on a time. An input queue of capacity N would give it a way to stop accepting things until less than N are working. Or, maybe the design wants to know it has enough memory to support all its functions. In many real time systems there is a practice that calls for allocating all resources during initialization so that all the constraints are known and can be analyzed.
 
-### Bounded Queue API
+### Queue API
 
-The intention here is to implement reusable queue API that abstracts away the underlying mechanism. There are other ways to implement a queue besides channels, and subsequent chapters will explore the tradeoffs. Since this is for Go, the API will be defined as an interface. Because it is meant to be general purpose the elements are empty interfaces, like in container/list::List and sync::Map.
-
-For this go-around, the API includes both blocking and non-blocking implementations of put and get. Its important to note that it is not thread safe for client code to first check the length and then execuate a get or put, because the length could change between check it and doing the operation. The non-blocking operations need to be atomic with respect to the client code.
+Here is an interface definition for a simple FIFO queue with a set bound. This interface does not support blocking semantics. Its intended to specify the methods needed to encapsulate an underlying data structure.
 
 ```go
-// BoundedQueue is a FIFO queue with a bound on the number of elements in the queue
-type  BoundedQueue interface {
+// Queue - interface for a simple, non-thread-safe queue with a set capacity
+type Queue interface {
+	// current number of elements in the queue
+	Len() int
+
+	// maximum number of elements allowed in queue
+	Cap() int
+
+	// enqueue a value on the tail of the queue
+	Push(value interface{})  error
+
+	// dequeue and return a value from the head of the queue
+	Pop() (interface{},error)
+}
+
+```
+
+#### Implementations
+
+I have several implementations of the Queue interface.
+
+- ListQ
+  - queue using a container/list
+  - **queue_list.go**
+- RingQ
+  - queue using a container/ring
+  - **queue_ring.go**
+- HeapQ
+  - queue using a container/heap
+  - **queue_heap.go**
+  - in this case, its implemented as a priority queue rather than FIFO
+- CircularQ
+  - queue using a circular buffer
+  - **queue_circular.go**
+
+The data elements are interface{} so any type can be used. This matches some of the approaches in the standard library for certain data structures. These implementations can be passed to any function needed a Queue.
+
+There is one additional version that works like the Queue interface, where the data type is a native 'int' instead of interface{}. It uses the circular buffer approach but since its not using interface{} it might have better performance. The analysis will tell us that.
+
+- NativeIntQ
+  - queue using a circular buffer with mutex/condition variable
+  - queue_native.go
+  - typesafe for 'int'
+
+At this point I'm not sure about the performance of any of these. We need to measure that.approaches.
+
+### SynchronizedQueue
+
+The Queue interface doesn't support some of the methods that are convenient for using in a threaded environment. The interface doesn't guarantee thread safety, nor does it specify blocking or non-blocking semantics. For that purpose, here is an extended interface that supports thread-safety and both blocking and non-blocking semantics. I provide an implementation of this interface that wraps a Queue with a SynchronizedQueue interface.
+
+```go
+
+// SynchronizedQueue is a queue with a bound on the number of elements in the queue
+// Any implementation of this SHOULD promise thread-safety and the proper blocking semantics.
+type  SynchronizedQueue interface {
 
 	// add an element onto the tail queue
-	// if the queue is full, an error is returned
+	// if the queue is full, the caller blocks
  	Put(value interface{})
 
 	// add an element onto the tail queue
-	// if the queue is full the call blocks
+	// if the queue is full an error is returned
 	TryPut(value interface{}) error
 
 	// get an element from the head of the queue
-	// if the queue is empty the get'er blocks
+	// if the queue is empty the caller blocks
 	Get() interface{}
 
 	// try to get an element from the head of the queue
@@ -69,74 +120,31 @@ type  BoundedQueue interface {
 }
 ```
 
-### Mechanisms
-
-There are three implementations of the BoundedQueue interface.
-
-- ChannelQ
-  - queue using a channel
-- ListQ
-  - queue using a container/list with mutex/condition variable
-- CircularQ
-  - queue using a circular buffer with mutex/condition variable
-
-For these three, the data elements are interface{} so any type can be used. This matches some of the approaches in the standard library for certain data structures. These three implementations can be passed to any function needed a BoundedQueue.
-
-There is one additional version that works like the BoundedQueue interface, where the data type is a native 'int' instead of interface{}. It uses the circular buffer approach but since its not using interface{} it might have better performance. The analysis will tell us that.
-
-- NativeIntQ
-  - queue using a circular buffer with mutex/condition variable
-  - typesafe for 'int'
-
-All four are implemented to find out the memory and cpu performance of the different approaches.
-
-#### Bounded Queue Using Channels
+#### Synchronized Queue Using Channels
 
 Of course, in the Go language, there are buffered channels, which literally are bounded queues. If you aren't familiar with Go channels, search for 'golang buffered channel' and there is lots of imformation. The official [Go Tour](https://tour.golang.org/concurrency/2) has a basic explanation. There are tons of references online about how to use buffered channels.
 
-I have seen a couple of references that suggest that using channels as a queue might not provide the best performance (if that matters). In any case an implementation of the Queue interface can be made with channels as the underlying mechanism.
-
-Here are the semantics of a buffered channel. The code for these will be described in the first example below. Implementing the API using channels requires the least code of any implementation in this series. The API is just a wrapper around the build-in channel syntax.
-
-- make : create a buffered channel with a fixed capacity
-- send:
-  - if the 'len' of the channel is less than the 'cap' (not full), add the element
-  - If the queue is 'len' == 'cap' (full), block until an element is taken from the channel
-- receive:
-  - if the 'len' is greater than zero (not empty), receive an element
-  - if the 'len' is zero (empty), block until an element is available
-- select: implements non-blocking (for code see example)
-  - receive:
-    - if the queue is not empty, receive an element
-    - if the queue is empty, take the default path
-  - send:
-    - if there is room in the channel, add the element
-  - If the queue is full, take the default path
+For channels there is an implementation of SyncrhonizedQueue without requiring the wrapper. There is no need for the Mutex/Cond support when you use channels.
 
 See file [queue_channel.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_channel.go).
 
-```go
-
-	// the object structure
-	type ChannelQ struct {
-		channel chan interface{} // buffered channel with specified capacity
-	}
-
-	// ==> enqueueing a value
-	chq.channel <- value:
-
-	// ==> dequeuing a value
-	value <- chq.channel
-
-```
-
 One other note about the channel version. If the queue is to be discarded at some point in execution but the program continues, the channel must be closed and all remaining data must be received so it doesn't leak. The interface has a Close() method that can be used by the application to close the channel when the queue is no longer needed. Only a producer calling Put may call Close(). A closed channel will panic if a Put is attempted. Once a channel is closed, any remaining data in the channel may still be accessible to Get's.
 
-#### Bounded Queue(s) Using Mutex/Condition Variable
+#### SynchronizedQueue Using Mutex/Condition Variable
 
-In a course I took and also things I saw online recommended avoiding using channels as queues and instead suggested using mutex and condition variables along with appropriate data structures. The implementations of all three of these are similar with respect to the mutual exclusion required. The only difference is what data structure was used.
+There is an implementation of the SynchronizedQueue interface in the file **queue_sync.go**. This implementation takes a Queue and wraps it with the proper sync methods. In this case it uses the common Mutex/Condition variable approach. A function to create an instance of this interface is provided.
+
+```go
+// NewSynchronizedQueue is a factory for creating synchronized queues
+// it takes an instance of the Queue interface and wraps it using
+// a mutex and condition variable
+// returns an instance of SynchronizedQueue
+func NewSynchronizedQueue(q Queue) SynchronizedQueue
+```
 
 ##### Mutex/Condition Variable
+
+If you are familiar with the Mutex/Condition Variable paradigm, you can skip this section.
 
 A Condition Variable is a synchronization object that allow threads to wait until a condition occurs. It does this in conjunction with a Mutex to provide mutual exclusion. The implemenation of a interthread queue is a typical usage of a Mutex/Condition variable pair.
 
@@ -189,114 +197,193 @@ func f(cvr *sync.Cond) {
 }
 ```
 
-#### Skeleton Of Implementation
+#### SyncrhonizedQueue Implementation
 
-The file [queue_skeleton.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_skeleton.go) has the basic outline of a queue using Mutex/Condition Variable support.
+The file [queue_sync.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_sync.go) has the wrapper for a Queue that provide thread-safety using Mutex/Condition Variable support.
 
 ```go
-	type Skeleton struct {
-		// -- some data structure for backing the queue
-		// ...
-		// mutual exclusion
-		mtx sync.Mutex      // a mutex for mutual exclusion
-		putcv *sync.Cond    // a condition variable for controlling Puts
-		getcv *sync.Cond    // a condition variable for controlling Gets
-	}
+// SynchronizedQueueImpl is an implementation of the SynchronizedQueue interface
+// using a Mutex and 2 condition variables.
+type SynchronizedQueueImpl struct {
+	queue Queue	    // some data structure for backing the queue
+	mtx sync.Mutex      // a mutex for mutual exclusion
+	putcv *sync.Cond    // a condition variable for controlling Puts
+	getcv *sync.Cond    // a condition variable for controlling Gets
+}
 ```
 
 Note that there are two condition variables band a single mutex. That is to support blocking on both ends, Put and Get. The single mutex protects the data structure in both the Put and Get calls. Put operations block on the **putcv** condition variable and signals the **getcv** condition variable when the Put adds an element to the queue. A Get operation works in the opposite direction, blocking on the **getcv** condition variable and signalling the **putcv** condition variable when an element is removed from the queue.
 
 The non-blocking TryPut and TryGet operations still need to signal their opposite condition variable in case the other end is using the blocking version.
 
-#### Bounded Queue Using container/list with interface{}
+#### Queue Using container/list with interface{}
 
 In this implementation the container/list data structure is used. In hindsight using a List is probably not the best approach since the queue is bounded so it doesn't need the flexibility of a List to shrink and grow. We'll see in the analysis.
 
 See file [queue_list.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_list.go).
 
 ```go
+// ListQueue
+// the container/list data structure supports the semantics and methods
+// needed for the Queue interface, with the exception of a capacity.
+type ListQueue struct {
+	list *list.List	 // contains the elements currently in the queue
+	capacity int	     // maximum number of elements the queue can hold
+}
 
-	// the object structure
-	type ListQ struct {
-		queue *list.List	 // contains the elements currently in the queue
-		capacity int	     // maximum number of elements the queue can hold
-		mtx sync.Mutex       // a mutex for mutual exclusion
-		getcv *sync.Cond     // a condition variable for controlling gets
-		putcv *sync.Cond       // a condition variable for controlling puts
-	}
+// ...
 
-	// in this case the list.List keeps track of its current length
+// Synchronized List Queue Factory
+func NewSyncList(cap int) SynchronizedQueue {
+	var lq Queue
+	var bq SynchronizedQueue
 
-	// ==> PUT : add to the tail and increment length
-	lsq.queue.PushBack(value)
+	// create a ListQueue
+	lq = NewListQueue(cap)
 
-	// ==> GET : get from the head and decrement length
-	value := lsq.queue.Remove(lsq.queue.Front())
+	// wrap it with a SynchronizedQueue
+	bq = NewSynchronizedQueue(lq)
 
+	return bq
+}
 ```
 
-#### Bounded Queue Using circular buffer with interface{}
+#### Queue Using container/ring with interface{}
 
-This version uses a circular buffer as the queue data structure. Just guessing it should have better performance than the list. However it still uses interface{} for data elements so it might have some overhead for that vs a native data type.
+In this implementation the container/ring data structure is used.
+
+See file [queue_list.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_list.go).
+
+```go
+// RingQueue - a Queue backed by a container/ring
+type RingQueue struct {
+	ring *ring.Ring	 // preallocated ring for all slots in the queue
+	head *ring.Ring  // head of the queue
+	tail *ring.Ring  // tail of the queue
+	capacity int     // maximum number of elements the ring can hold
+	length int       // current number of element in the ring
+}
+
+// ...
+
+// Synchronized RingQueue factory
+func NewSyncRing(cap int) SynchronizedQueue {
+	var rq Queue
+	var bq SynchronizedQueue
+	// create a ring queue
+	rq = NewRingQueue(cap)
+
+	// wrap it with a SynchronizedQueue
+	bq = NewSynchronizedQueue(rq)
+
+	return bq
+}
+```
+
+#### Queue Using circular buffer with interface{}
+
+This version uses a homegrown circular buffer as the queue data structure. Just guessing it should have better performance than the list. However it still uses interface{} for data elements so it might have some overhead for that vs a native data type.
 
 See file [queue_circular.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_circular.go).
 
 ```go
+// CircularQueue
+type CircularQueue struct {
+	queue []interface{}	// data
+	head     int		// items are pulled from the head
+	tail     int		// items are pushed to the tail
+	length   int		// current number of elements in the queue
+	capacity int	    // maximum allowed elements total
+}
 
-	// the object structure
-	type CircularQ struct {
-		queue []interface{}
-		head     int
-		tail     int
-		length   int
-		capacity int
-		mtx sync.Mutex       // a mutex for mutual exclusion
-		putcv *sync.Cond   // a condition variable for controlling mutations to the queue
-		getcv *sync.Cond
-	}
+// ...
 
-	// ==> PUT : add to the tail and increment length
-	cir.queue[cir.tail] = value
-	cir.tail = (cir.tail+1) % cir.capacity
-	cir.length++
+// Synchronized CircularQueue Factory
+func NewSyncCircular(cap int) SynchronizedQueue {
+	var cq Queue
+	var bq SynchronizedQueue
 
-	// ==> GET : get from the head and decrement length
-	value := cir.queue[cir.head]
-	cir.head = (cir.head + 1)  % cir.capacity
-	cir.length--
+	// create a circular queue
+	cq = NewCircularQueue(cap)
+
+	// wrap it with a synchronized queue
+	bq = NewSynchronizedQueue(cq)
+
+	return bq
 }
 ```
 
-#### Bounded Queue Using circular with native ints
+#### SynchronizedQueue Using circular with native ints
 
-This version uses a circular buffer as the queue data structure. It is almost identical to the previous circular buffer version with the exception it only supports 'int' elements. I'm guessing that this may be a bit faster than the empty interface version
+This version uses a circular buffer as the queue data structure. It is almost identical to the previous circular buffer version with the exception it only supports 'int' elements. I'm guessing that this may be a bit faster than the empty interface version. This version is not compatible with the SynchronizedQueue interface so it has its own mutual exclusion support.
 
 See file [queue_native.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_native.go).
 
 ```go
-	// the object structure
-	type NativeIntQ struct {
-		queue []int
-		head     int
-		tail     int
-		length   int
-		capacity int
-		mtx sync.Mutex      // a mutex for mutual exclusion
-		putcv *sync.Cond    // a condition variable for controlling Puts
-		getcv *sync.Cond    // a condition variable for controlling Gets
-	}
+// NativeIntQ iis a type specific implementation
+type NativeIntQ struct {
+	queue []int			// data
+	head     int		// items are pulled from the head
+	tail     int		// items are pushed to the tail
+	length   int		// current number of elements in the queue
+	capacity int	    // maximum allowed elements total
+	mtx sync.Mutex      // a mutex for mutual exclusion
+	putcv *sync.Cond    // a condition variable for controlling Puts
+	getcv *sync.Cond    // a condition variable for controlling Gets
+}
 
+// NewNativeQueue is a factory for creating queues
+// that use a condition variable and circular buffer
+// for the specific type. In this case 'int'.
+func NewNativeQueue(size int) *NativeIntQ {
+	var nvq NativeIntQ
 
-	// ==> PUT : add to the tail and increment length
-	nvq.queue[nvq.tail] = value
-	nvq.tail = (nvq.tail+1) % nvq.capacity
-	nvq.length++
+	// allocate the whole slice during init
+	nvq.queue = make([]int,size,size)
+	nvq.head = 0
+	nvq.tail = 0
+	nvq.length = 0
+	nvq.capacity = size
+	nvq.mtx = sync.Mutex{}
+	nvq.putcv = sync.NewCond(&nvq.mtx)
+	nvq.getcv = sync.NewCond(&nvq.mtx)
 
-	// ==> GET : get from the head and decrement length
-	value := nvq.queue[nvq.head]
-	nvq.head = (nvq.head + 1)  % nvq.capacity
-	nvq.length--
+	return &nvq
+}
 
+```
+
+#### Queue Using container/heap with interface{} (PriorityQueue)
+
+In this implementation the container/heap structure is used. This is a special case. The implementation
+creates a priority list. It is modeled after the [PriorityQueue example](https://golang.org/pkg/container/heap/#example__priorityQueue) from the standard library.
+
+This implementation requires a separate set of tests because the other ones use plain old ints for their data but this one requires a PriorityItem with both a **value interface{}** and **priority int**. It could be implemented with an int that represents both the value and priority but then its value won't be type agnostic.
+
+See file [queue_priority.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_priority.go).
+
+```go
+// one item in the priority queue
+type PriorityItem struct {
+	value interface{}
+	priority int
+}
+
+// ...
+
+// Synchronized PriorityQueue factory
+func NewSyncPriorityQueue(cap int) SynchronizedQueue {
+	var pq Queue
+	var bq SynchronizedQueue
+
+	// create the int heap
+	pq = NewPriorityQueue(cap)
+
+	// wrap it in the syncrhonized bounded queue
+	bq = NewSynchronizedQueue(pq)
+
+	return bq
+}
 ```
 
 ### Testing

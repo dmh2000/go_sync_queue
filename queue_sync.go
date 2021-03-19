@@ -6,9 +6,9 @@ import (
 	"sync"
 )
 
-// SynchronizedBoundedQueue is a type of queue that uses a mutex and condition
-// variables to implement the BoundedQueue interface.
-type SynchronizedBoundedQueue struct {
+// SynchronizedQueueImpl is an implementation of the SynchronizedQueue interface
+// using a Mutex and 2 condition variables.
+type SynchronizedQueueImpl struct {
 	queue Queue	    // some data structure for backing the queue
 	mtx sync.Mutex      // a mutex for mutual exclusion
 	putcv *sync.Cond    // a condition variable for controlling Puts
@@ -17,7 +17,7 @@ type SynchronizedBoundedQueue struct {
 
 // TryPut adds an element onto the tail queue
 // if the queue is full, an error is returned
-func (bq *SynchronizedBoundedQueue) TryPut(value interface{}) error {
+func (bq *SynchronizedQueueImpl) TryPut(value interface{}) error {
 	// lock the mutex
 	bq.putcv.L.Lock();
 	defer bq.putcv.L.Unlock()
@@ -42,7 +42,7 @@ func (bq *SynchronizedBoundedQueue) TryPut(value interface{}) error {
 
 // Put adds an element onto the tail queue
 // if the queue is full the function blocks
-func (bq *SynchronizedBoundedQueue) Put(value interface{})  {
+func (bq *SynchronizedQueueImpl) Put(value interface{})  {
 	// lock the mutex
 	bq.putcv.L.Lock()
 	defer bq.putcv.L.Unlock()
@@ -65,7 +65,7 @@ func (bq *SynchronizedBoundedQueue) Put(value interface{})  {
 
 // Get returns an element from the head of the queue
 // if the queue is empty,the caller blocks
-func (bq *SynchronizedBoundedQueue) Get() interface{} {
+func (bq *SynchronizedQueueImpl) Get() interface{} {
 	var value interface{}
 
 	// lock the mutex
@@ -94,7 +94,7 @@ func (bq *SynchronizedBoundedQueue) Get() interface{} {
 
 // TryGet attempts to get a value
 // if the queue is empty returns an error
-func (bq *SynchronizedBoundedQueue) TryGet() (interface{}, error) {
+func (bq *SynchronizedQueueImpl) TryGet() (interface{}, error) {
 	var value interface{}
 	var err error
 
@@ -121,29 +121,29 @@ func (bq *SynchronizedBoundedQueue) TryGet() (interface{}, error) {
 }
 
 // Len is the current number of elements in the queue 
-func (bq *SynchronizedBoundedQueue) Len() int {
+func (bq *SynchronizedQueueImpl) Len() int {
 	return bq.queue.Len()
 }
 
 // Cap is the maximum number of elements the queue can hold
-func (bq *SynchronizedBoundedQueue) Cap() int {
+func (bq *SynchronizedQueueImpl) Cap() int {
 	return bq.queue.Cap()
 }
 
 // Close handles any required cleanup
-func (bq *SynchronizedBoundedQueue) Close() {
+func (bq *SynchronizedQueueImpl) Close() {
 	// noop
 }
 
 // String
-func (bq *SynchronizedBoundedQueue) String() string {return ""}
+func (bq *SynchronizedQueueImpl) String() string {return ""}
 
 
-// NewQueueSync is a factory for creating bounded queues
+// NewSynchronizedQueue is a factory for creating bounded queues
 // that use a mutex and condition variable
-// returns an instance of BoundedQueue
-func NewQueueSync(q Queue) BoundedQueue {
-	var bq SynchronizedBoundedQueue
+// returns an instance of SynchronizedQueue
+func NewSynchronizedQueue(q Queue) SynchronizedQueue {
+	var bq SynchronizedQueueImpl
 	
 	// attach the underlying queue data structure
 	bq.queue = q

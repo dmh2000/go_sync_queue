@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-// List - a Queue backed by a container/list
+// RingQueue - a Queue backed by a container/ring
 type RingQueue struct {
 	ring *ring.Ring	 // preallocated ring for all slots in the queue
 	head *ring.Ring  // head of the queue
@@ -66,13 +66,13 @@ func NewRingQueue(cap int) Queue {
 	return &rq
 }
 
-func NewSyncRing(cap int) BoundedQueue {
+func NewSyncRing(cap int) SynchronizedQueue {
 	var rq Queue
-	var bq BoundedQueue 
+	var bq SynchronizedQueue 
 
 	rq = NewRingQueue(cap)
 
-	bq = NewQueueSync(rq) 
+	bq = NewSynchronizedQueue(rq) 
 
 	return bq
 }

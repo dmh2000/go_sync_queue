@@ -6,7 +6,7 @@ slug: "/syncqueue"
 
 ## Synchronized Queue in Golang
 
-All code files are in Github at [dmh2000/golang-bounded-queue](https://github.com/dmh2000/golang-bounded-queue)
+All code files are in Github at [dmh2000/golang-sync-queue](https://github.com/dmh2000/golang-sync-queue)
 
 ### Queue
 
@@ -126,7 +126,7 @@ Of course, in the Go language, there are buffered channels, which literally are 
 
 For channels there is an implementation of SyncrhonizedQueue without requiring the wrapper. There is no need for the Mutex/Cond support when you use channels.
 
-See file [queue_channel.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_channel.go).
+See file [queue_channel.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_channel.go).
 
 One other note about the channel version. If the queue is to be discarded at some point in execution but the program continues, the channel must be closed and all remaining data must be received so it doesn't leak. The interface has a Close() method that can be used by the application to close the channel when the queue is no longer needed. Only a producer calling Put may call Close(). A closed channel will panic if a Put is attempted. Once a channel is closed, any remaining data in the channel may still be accessible to Get's.
 
@@ -199,7 +199,7 @@ func f(cvr *sync.Cond) {
 
 #### SyncrhonizedQueue Implementation
 
-The file [queue_sync.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_sync.go) has the wrapper for a Queue that provide thread-safety using Mutex/Condition Variable support.
+The file [queue_sync.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_sync.go) has the wrapper for a Queue that provide thread-safety using Mutex/Condition Variable support.
 
 ```go
 // SynchronizedQueueImpl is an implementation of the SynchronizedQueue interface
@@ -220,7 +220,7 @@ The non-blocking TryPut and TryGet operations still need to signal their opposit
 
 In this implementation the container/list data structure is used. In hindsight using a List is probably not the best approach since the queue is bounded so it doesn't need the flexibility of a List to shrink and grow. We'll see in the analysis.
 
-See file [queue_list.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_list.go).
+See file [queue_list.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_list.go).
 
 ```go
 // ListQueue
@@ -252,7 +252,7 @@ func NewSyncList(cap int) SynchronizedQueue {
 
 In this implementation the container/ring data structure is used.
 
-See file [queue_list.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_list.go).
+See file [queue_ring.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_ring.go).
 
 ```go
 // RingQueue - a Queue backed by a container/ring
@@ -284,7 +284,7 @@ func NewSyncRing(cap int) SynchronizedQueue {
 
 This version uses a homegrown circular buffer as the queue data structure. Just guessing it should have better performance than the list. However it still uses interface{} for data elements so it might have some overhead for that vs a native data type.
 
-See file [queue_circular.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_circular.go).
+See file [queue_circular.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_circular.go).
 
 ```go
 // CircularQueue
@@ -317,7 +317,7 @@ func NewSyncCircular(cap int) SynchronizedQueue {
 
 This version uses a circular buffer as the queue data structure. It is almost identical to the previous circular buffer version with the exception it only supports 'int' elements. I'm guessing that this may be a bit faster than the empty interface version. This version is not compatible with the SynchronizedQueue interface so it has its own mutual exclusion support.
 
-See file [queue_native.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_native.go).
+See file [queue_native.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_native.go).
 
 ```go
 // NativeIntQ iis a type specific implementation
@@ -360,7 +360,7 @@ creates a priority list. It is modeled after the [PriorityQueue example](https:/
 
 This implementation requires a separate set of tests because the other ones use plain old ints for their data but this one requires a PriorityItem with both a **value interface{}** and **priority int**. It could be implemented with an int that represents both the value and priority but then its value won't be type agnostic.
 
-See file [queue_priority.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/queue_priority.go).
+See file [queue_priority.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_priority.go).
 
 ```go
 // one item in the priority queue
@@ -390,9 +390,11 @@ func NewSyncPriorityQueue(cap int) SynchronizedQueue {
 
 Three files have test code using the Go native test framework.
 
+- run ./test.sh to execute all the tests
+
 #### Synchronous Tests
 
-The file [sync_test.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/sync_test.go) contains tests where non-blocking TryPut's and TryGet's are performed in a single goroutine environment. These provide a test that the basic Try operations seem to work. They also test the capacity and length limits of the queues. There is no blocking in these tests.
+The file [sync_test.go](https://github.com/dmh2000/golang-sync-queue/blob/main/sync_test.go) contains tests where non-blocking TryPut's and TryGet's are performed in a single goroutine environment. These provide a test that the basic Try operations seem to work. They also test the capacity and length limits of the queues. There is no blocking in these tests.
 
 As of this writing, all the synchronous tests pass.
 
@@ -419,7 +421,7 @@ ok  	dmh2000.xyz/queue
 
 #### Asynchronous Tests
 
-The file [async_test.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/async_test.go) contains tests where blocking Put's and Get's are performed in separate goroutines, one as a producer, one as a consumer. There are two versions of the tests, one where the Put and Get loops have no delays in them. The second is similar but with a random delay before each Put and Get. Intended to check that the blocking and wakeups are working properly.
+The file [async_test.go](https://github.com/dmh2000/golang-sync-queue/blob/main/async_test.go) contains tests where blocking Put's and Get's are performed in separate goroutines, one as a producer, one as a consumer. There are two versions of the tests, one where the Put and Get loops have no delays in them. The second is similar but with a random delay before each Put and Get. Intended to check that the blocking and wakeups are working properly.
 
 As of this writing, all the synchronous tests pass.
 
@@ -446,7 +448,7 @@ ok  	dmh2000.xyz/queue
 
 #### Benchmarks
 
-The file [benchmark_test.go](https://github.com/dmh2000/golang-bounded-queue/blob/main/benchmark_test.go) contains tests both synchronous and asynchronous version similar to the Async tests, but intended to be used as benchmarks for timing and memory usage.
+The file [benchmark_test.go](https://github.com/dmh2000/golang-sync-queue/blob/main/benchmark_test.go) contains tests both synchronous and asynchronous version similar to the Async tests, but intended to be used as benchmarks for timing and memory usage.
 
 ```bash
 # -v : verbose output
@@ -585,6 +587,7 @@ Entering interactive mode (type "help" for commands, "o" for options)
 ```
 
 - Notes
+  - The preallocations in the New functions don't seem to hit the runtime
   - Most of the work is being done in system calls relating to mutual exclusion
   - so Mutexes and Conds are expensive to use
   - create a non-blocking version? Too hard for me

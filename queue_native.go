@@ -6,16 +6,13 @@ import (
 	"sync"
 )
 
-// NativeIntQ is a type of queue that uses a
-// condition variable and a circular buffer
-// BoundedQueue interface. this implementation
-// is intended to be thread safe
+// NativeIntQ iis a type specific implementation
 type NativeIntQ struct {
-	queue []int
-	head     int
-	tail     int
-	length   int
-	capacity int
+	queue []int			// data
+	head     int		// items are pulled from the head
+	tail     int		// items are pushed to the tail
+	length   int		// current number of elements in the queue
+	capacity int	    // maximum allowed elements total
 	mtx sync.Mutex      // a mutex for mutual exclusion
 	putcv *sync.Cond    // a condition variable for controlling Puts
 	getcv *sync.Cond    // a condition variable for controlling Gets
@@ -141,9 +138,9 @@ func (nvq *NativeIntQ) String() string {
 	return fmt.Sprintf("Native Len:%v Cap:%v",nvq.Len(),nvq.Cap())
 }
 
-// NewNativeQueue is a factory for creating bounded queues
-// that use a condition variable and circular buffer. It returns
-// an instance of pointer to BoundedQueue
+// NewNativeQueue is a factory for creating queues
+// that use a condition variable and circular buffer
+// for the specific type. In this case 'int'. 
 func NewNativeQueue(size int) *NativeIntQ {
 	var nvq NativeIntQ
 	

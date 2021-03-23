@@ -7,7 +7,7 @@ import (
 
 // ChannelQ is a type of queue that uses a
 // condition variable and lists to implement the
-// BoundedQueue interface. this implementation
+// SynchronizedQueue interface. this implementation
 // is intended to be thread safe
 type ChannelQ struct {
 	channel chan interface{} // buffered channel with specified capacity 
@@ -85,8 +85,8 @@ func (chq *ChannelQ) String() string {
 
 // NewChannelQueue is a factory for creating bounded queues
 // that uses a channel
-// It returns an instance of pointer to BoundedQueue
-func NewChannelQueue(size int) BoundedQueue {
+// It returns an instance of pointer to SynchronizedQueue
+func NewChannelQueue(size int) SynchronizedQueue {
 	var chq ChannelQ
 
 	chq.channel = make(chan interface{}, size)

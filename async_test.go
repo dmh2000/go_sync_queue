@@ -16,7 +16,7 @@ const aqsize int = 8
 // ==================
 
 // - blocking with no delays
-func producer1(q BoundedQueue, wg *sync.WaitGroup) {
+func producer1(q SynchronizedQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		q.Put(i)
@@ -32,7 +32,7 @@ func producer1(q BoundedQueue, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func consumer1(q BoundedQueue, t *testing.T, wg *sync.WaitGroup)  {
+func consumer1(q SynchronizedQueue, t *testing.T, wg *sync.WaitGroup)  {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
 		value := q.Get()
@@ -66,7 +66,7 @@ func consumer2(q *NativeIntQ, t *testing.T, wg *sync.WaitGroup) {
 }
 
 // 3 - blocking with random time delays
-func producer3(q BoundedQueue, wg *sync.WaitGroup) {
+func producer3(q SynchronizedQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		time.Sleep(time.Duration(rand.Int63n(250)) * time.Millisecond)
@@ -83,7 +83,7 @@ func producer3(q BoundedQueue, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func consumer3(q BoundedQueue, t *testing.T, wg *sync.WaitGroup)  {
+func consumer3(q SynchronizedQueue, t *testing.T, wg *sync.WaitGroup)  {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
 		time.Sleep(time.Duration(rand.Int63n(250)) * time.Millisecond)
@@ -98,7 +98,7 @@ func consumer3(q BoundedQueue, t *testing.T, wg *sync.WaitGroup)  {
 }
 
 
-func async1(t *testing.T, q BoundedQueue) {
+func async1(t *testing.T, q SynchronizedQueue) {
 	var wg sync.WaitGroup
 
 	wg.Add(2)
@@ -116,7 +116,7 @@ func async2(t *testing.T, q *NativeIntQ) {
 	wg.Wait()
 }
 
-func async3(t *testing.T, q BoundedQueue) {
+func async3(t *testing.T, q SynchronizedQueue) {
 	var wg sync.WaitGroup
 
 	wg.Add(2)
@@ -132,12 +132,22 @@ func TestChannelAsync(t *testing.T) {
 }
 
 func TestListAsync(t *testing.T) {
-	async1(t,NewListQueue(aqsize))
-	async3(t,NewListQueue(aqsize))
+	async1(t,NewSyncList(aqsize))
+	async3(t,NewSyncList(aqsize))
 }
 func TestCircularAsync(t *testing.T) {
-	async1(t,NewCircularQueue(aqsize))
-	async3(t,NewCircularQueue(aqsize))
+	async1(t,NewSyncCircular(aqsize))
+	async3(t,NewSyncCircular(aqsize))
+}
+
+func TestRingAsync(t *testing.T) {
+	async1(t,NewSyncRing(aqsize))
+	async3(t,NewSyncRing(aqsize))
+}
+
+func TestComboAsync(t *testing.T) {
+	async1(t,NewSyncCircular(aqsize))
+	async3(t,NewSyncList(aqsize))
 }
 
 func TestNativeAsync(t *testing.T) {

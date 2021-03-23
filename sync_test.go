@@ -8,8 +8,8 @@ import (
 // test variables
 const sqsize int = 8
 
-// test an instance of a BoundedQueue
-func sync1(t *testing.T, q BoundedQueue) {
+// test an instance of a SynchronizedQueue
+func sync1(t *testing.T, q SynchronizedQueue) {
 	var err error
 
 	if q == nil {
@@ -82,7 +82,7 @@ func sync1(t *testing.T, q BoundedQueue) {
 }
 
 
-// test an instance of a BoundedQueue
+// test an instance of a SynchronizedQueue
 func sync2(t *testing.T, q *NativeIntQ) {
 	var err error
 
@@ -163,28 +163,35 @@ func TestChannelSync(t *testing.T) {
 	sync1(t,NewChannelQueue(sqsize))
 }
 
-// LIST
-func TestListSync(t *testing.T) {
-	// using condition variable queue
-	sync1(t,NewListQueue(sqsize))
-}
-
-// CIRCULAR BUFFER
-func TestCircularSync(t *testing.T) {
-	// using condition variable queue
-	sync1(t,NewCircularQueue(sqsize))
-}
-
 // NATIVE QUEUE
 func TestQueueNativeSync(t *testing.T) {
 	// using condition variable queue
 	sync2(t,NewNativeQueue(sqsize))
 }
 
+
+// CIRCULAR BUFFER using SynchronizedQueue wrapper
+func TestCircularQueueSync(t *testing.T) {
+	// using condition variable queue
+	sync1(t,NewSyncCircular(sqsize))
+}
+
+// LIST QUEUE using SynchronizedQueue wrapper
+func TestListSync(t *testing.T) {
+	// using condition variable queue
+	sync1(t,NewSyncList(sqsize))
+}
+
+// RING QUEUE using SynchronizedQueue wrapper
+func TestRingSync(t *testing.T) {
+	// using condition variable queue
+	sync1(t,NewSyncRing(sqsize))
+}
+
 // Strings
 func TestQueueStrings(t *testing.T) {
 	fmt.Println(NewChannelQueue(sqsize))
-	fmt.Println(NewListQueue(sqsize))
-	fmt.Println(NewCircularQueue(sqsize))
 	fmt.Println(NewNativeQueue(sqsize))
+	fmt.Println(NewSyncCircular(sqsize))
+	fmt.Println(NewSyncList(sqsize))
 }

@@ -11,7 +11,7 @@ import (
 var bqsize int = 20
 
 
-func b1(b *testing.B, q BoundedQueue) {
+func b1(b *testing.B, q SynchronizedQueue) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		var x interface{}
@@ -67,14 +67,21 @@ func BenchmarkQueueChannelSync(b *testing.B) {
 func BenchmarkListSync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		b1(b,NewListQueue(bqsize))
+		b1(b,NewSyncList(bqsize))
 	}
 }
 
 func BenchmarkCircularSync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		b1(b,NewCircularQueue(bqsize))
+		b1(b,NewSyncCircular(bqsize))
+	}
+}
+
+func BenchmarkRingSync(b *testing.B) {
+	// using condition variable queue
+	for i:=0;i<b.N;i++ {
+		b1(b,NewSyncRing(bqsize))
 	}
 }
 
@@ -93,7 +100,7 @@ func BenchmarkQueueNativeSync(b *testing.B) {
 // ==================
 
 // - blocking with no delays
-func producer1a(q BoundedQueue, wg *sync.WaitGroup) {
+func producer1a(q SynchronizedQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		q.Put(i)
@@ -102,7 +109,7 @@ func producer1a(q BoundedQueue, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func consumer1a(q BoundedQueue, b *testing.B, wg *sync.WaitGroup)  {
+func consumer1a(q SynchronizedQueue, b *testing.B, wg *sync.WaitGroup)  {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
 		value := q.Get()
@@ -136,7 +143,7 @@ func consumer2a(q *NativeIntQ, b *testing.B, wg *sync.WaitGroup) {
 }
 
 
-func asyncb1(b *testing.B, q BoundedQueue) {
+func asyncb1(b *testing.B, q SynchronizedQueue) {
 	var wg sync.WaitGroup
 
 	wg.Add(2)
@@ -164,14 +171,21 @@ func BenchmarkQueueChannelAsync(b *testing.B) {
 func BenchmarkListAsync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		asyncb1(b,NewListQueue(bqsize))
+		asyncb1(b,NewSyncList(bqsize))
 	}
 }
 
 func BenchmarkCircularAsync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
-		asyncb1(b,NewCircularQueue(bqsize))
+		asyncb1(b,NewSyncCircular(bqsize))
+	}
+}
+
+func BenchmarkRingAsync(b *testing.B) {
+	// using condition variable queue
+	for i:=0;i<b.N;i++ {
+		asyncb1(b,NewSyncRing(bqsize))
 	}
 }
 

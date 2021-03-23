@@ -356,11 +356,11 @@ func NewNativeQueue(size int) *NativeIntQ {
 #### Queue Using container/heap with interface{} (PriorityQueue)
 
 In this implementation the container/heap structure is used. This is a special case. The implementation
-creates a priority list. It is modeled after the [PriorityQueue example](https://golang.org/pkg/container/heap/#example__priorityQueue) from the standard library.
+creates a priority list. It is modeled after the [PriorityQueue example](https://golang.org/pkg/container/heap/#example__priorityQueue) from the standard library. So its not FIFO, instead the elements are ordered by priority. However it still complies with the Queue interface and can be used with the SynchronizedQueue wrapper.
 
 This implementation requires a separate set of tests because the other ones use plain old ints for their data but this one requires a PriorityItem with both a **value interface{}** and **priority int**. It could be implemented with an int that represents both the value and priority but then its value won't be type agnostic.
 
-See file [queue_priority.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_priority.go).
+file [queue_priority.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_priority.go) which contains the implementation of the Queue required by SynchronizedQueue.
 
 ```go
 // one item in the priority queue

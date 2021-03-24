@@ -320,7 +320,7 @@ func NewSyncCircular(cap int) SynchronizedQueue {
 }
 ```
 
-#### SynchronizedQueue Using circular with native ints
+#### Synchronized Queue using circular buffer with native ints
 
 This version uses a circular buffer as the queue data structure. It is almost identical to the previous circular buffer version with the exception it only supports 'int' elements. I'm guessing that this may be a bit faster than the empty interface version. This version is not compatible with the SynchronizedQueue interface so it has its own mutual exclusion support.
 

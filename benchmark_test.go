@@ -85,6 +85,13 @@ func BenchmarkRingSync(b *testing.B) {
 	}
 }
 
+func BenchmarkSliceSync(b *testing.B) {
+	// using condition variable queue
+	for i:=0;i<b.N;i++ {
+		b1(b,NewSyncSlice(bqsize))
+	}
+}
+
 func BenchmarkQueueNativeSync(b *testing.B) {
 	// using condition variable queue
 	for i:=0;i<b.N;i++ {
@@ -188,6 +195,14 @@ func BenchmarkRingAsync(b *testing.B) {
 		asyncb1(b,NewSyncRing(bqsize))
 	}
 }
+
+func BenchmarkSliceAsync(b *testing.B) {
+	// using condition variable queue
+	for i:=0;i<b.N;i++ {
+		asyncb1(b,NewSyncSlice(bqsize))
+	}
+}
+
 
 func BenchmarkQueueNativeAsync(b *testing.B) {
 	// using condition variable queue

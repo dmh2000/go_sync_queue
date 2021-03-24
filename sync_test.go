@@ -187,6 +187,12 @@ func TestRingSync(t *testing.T) {
 	sync1(t,NewSyncRing(sqsize))
 }
 
+// SLICE QUEUE using SynchronizedQueue wrapper
+func TestSliceSync(t *testing.T) {
+	// using condition variable queue
+	sync1(t,NewSyncSlice(sqsize))
+}
+
 // Strings
 func TestStringsSync(t *testing.T) {
 	var q SynchronizedQueue
@@ -208,6 +214,10 @@ func TestStringsSync(t *testing.T) {
 
 	q = NewSyncPriority(sqsize)
 	q.Put(PriorityItem{1,1})
+	t.Log(q.String())
+
+	q = NewSyncSlice(sqsize)
+	q.Put(1)
 	t.Log(q.String())
 
 	// native queue isn't wrapped

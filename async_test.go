@@ -184,6 +184,10 @@ func TestRingAsync(t *testing.T) {
 	async3(t,NewSyncRing(aqsize))
 }
 
+func TestSliceAsync(t *testing.T) {
+	async1(t,NewSyncSlice(aqsize))
+	async3(t,NewSyncSlice(aqsize))
+}
 func TestComboAsync(t *testing.T) {
 	async1(t,NewSyncCircular(aqsize))
 	async3(t,NewSyncList(aqsize))

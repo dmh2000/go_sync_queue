@@ -31,6 +31,11 @@ func TestRingRace(t *testing.T) {
 	async3(t,NewSyncRing(rqsize))
 }
 
+func TestSliceRace(t *testing.T) {
+	async1(t,NewSyncSlice(rqsize))
+	async3(t,NewSyncSlice(rqsize))
+}
+
 func TestComboRace(t *testing.T) {
 	async1(t,NewSyncCircular(rqsize))
 	async3(t,NewSyncList(rqsize))

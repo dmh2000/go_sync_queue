@@ -61,6 +61,10 @@ type Queue interface {
 
 I have several implementations of the Queue interface.
 
+- SliceQueue
+  - queue using a slice of interface{}
+  - data is not preallocated
+  - [queue_slice.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_slice.go).
 - ListQueue
   - queue using a container/list
   - [queue_list.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_list.go).
@@ -68,7 +72,7 @@ I have several implementations of the Queue interface.
   - queue using a container/ring
   - [queue_ring.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_ring.go).
 - CircularQueue
-  - queue using a homegrown circular buffer
+  - queue using a homegrown circular buffer with preallocation
   - [queue_circular.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_circular.go).
 - PriorityQueue
   - queue using a container/heap
@@ -114,7 +118,7 @@ type  SynchronizedQueue interface {
 	TryGet() (interface{}, error)
 
 	// current number of elements in the queue
- 	Len() int
+    Len() int
 
 	// capacity maximum number of elements the queue can hold
 	Cap() int
@@ -223,6 +227,41 @@ Note that there are two condition variables and a single mutex. That is to suppo
 
 The non-blocking TryPut and TryGet operations still need to signal their opposite condition variable in case the other end is using the blocking version.
 
+#### Queue Using a slice of interface{}
+
+Hey, slices can act like queues. append to end, \[1:\] from front. In this case the slice is not preallocated. The
+Put's and Get's modify the slice dynamically. Appending to the end is probably not too bad, but popping the front may be pretty ugly. We will see in the benchmark test.
+
+See file [queue_slice.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_slice.go).
+
+```go
+// SliceQueue backed by a slice
+// this version appends and removes elements so the slice grows and shrinks
+// memory is not preallocated
+// see CircularQueue for a version that preallocates a slice of capacity
+type SliceQueue struct {
+	slice []interface{}
+	capacity int	     // maximum number of elements the queue can hold
+}
+
+// ...
+
+// synchronized Slice queue
+func NewSyncSlice(cap int) SynchronizedQueue {
+	var sq Queue
+	var bq SynchronizedQueue
+
+	// create the queue
+	sq = NewSliceQueue(cap)
+
+	// wrap it with synchronization
+	bq = NewSynchronizedQueue(sq)
+
+	return bq
+}
+
+```
+
 #### Queue Using container/list with interface{}
 
 In this implementation the container/list data structure is used. In hindsight using a List is probably not the best approach since the queue is bounded so it doesn't need the flexibility of a List to shrink and grow. We'll see in the analysis.
@@ -277,6 +316,7 @@ type RingQueue struct {
 func NewSyncRing(cap int) SynchronizedQueue {
 	var rq Queue
 	var bq SynchronizedQueue
+
 	// create a ring queue
 	rq = NewRingQueue(cap)
 
@@ -383,10 +423,10 @@ func NewSyncPriorityQueue(cap int) SynchronizedQueue {
 	var pq Queue
 	var bq SynchronizedQueue
 
-	// create the int heap
+	// create the priority queue
 	pq = NewPriorityQueue(cap)
 
-	// wrap it in the synchronized bounded queue
+	// wrap it in the synchronized queue
 	bq = NewSynchronizedQueue(pq)
 
 	return bq
@@ -422,13 +462,16 @@ $ go test -v -run Test.*Sync .
 --- PASS: TestListSync (0.00s)
 === RUN   TestRingSync
 --- PASS: TestRingSync (0.00s)
+=== RUN   TestSliceSync
+--- PASS: TestSliceSync (0.00s)
 === RUN   TestStringsSync
-    sync_test.go:195: ChannelQ Len:1 Cap:8
-    sync_test.go:199: SynchronizedQueue:CircularQueue Len:1 Cap:8
-    sync_test.go:203: SynchronizedQueue:ListQueue Len:1 Cap:8
-    sync_test.go:207: SynchronizedQueue:RingQueue Len:1 Cap:8
-    sync_test.go:211: SynchronizedQueue:PriorityQueue Len:1 Cap:8
-    sync_test.go:216: NativeIntQueue Len:1 Cap:8
+    sync_test.go:201: ChannelQ Len:1 Cap:8
+    sync_test.go:205: SynchronizedQueue:CircularQueue Len:1 Cap:8
+    sync_test.go:209: SynchronizedQueue:ListQueue Len:1 Cap:8
+    sync_test.go:213: SynchronizedQueue:RingQueue Len:1 Cap:8
+    sync_test.go:217: SynchronizedQueue:PriorityQueue Len:1 Cap:8
+    sync_test.go:221: SynchronizedQueue:SliceQueue Len:1 Cap:8
+    sync_test.go:226: NativeIntQueue Len:1 Cap:8
 --- PASS: TestStringsSync (0.00s)
 PASS
 ok      dmh2000.xyz/queue       0.002s
@@ -453,12 +496,14 @@ $ go test -v -run Test.*Async .
 --- PASS: TestCircularAsync (0.16s)
 === RUN   TestRingAsync
 --- PASS: TestRingAsync (0.23s)
+=== RUN   TestSliceAsync
+--- PASS: TestSliceAsync (0.13s)
 === RUN   TestComboAsync
---- PASS: TestComboAsync (0.13s)
+--- PASS: TestComboAsync (0.27s)
 === RUN   TestNativeAsync
---- PASS: TestNativeAsync (0.27s)
+--- PASS: TestNativeAsync (0.20s)
 PASS
-ok      dmh2000.xyz/queue       1.262s
+ok      dmh2000.xyz/queue       1.459s
 ```
 
 #### Benchmarks
@@ -483,27 +528,47 @@ BenchmarkQueueChannelSync
 BenchmarkListSync
 BenchmarkCircularSync
 BenchmarkRingSync
+BenchmarkSliceSync
 BenchmarkQueueNativeSync
 BenchmarkQueueChannelAsync
 BenchmarkListAsync
 BenchmarkCircularAsync
 BenchmarkRingAsync
+BenchmarkSliceAsync
 BenchmarkQueueNativeAsync
 PASS
 benchmark                        iter       time/iter   bytes alloc         allocs
 ---------                        ----       ---------   -----------         ------
-BenchmarkQueueChannelSync-4    540868   1979.00 ns/op      424 B/op    3 allocs/op
-BenchmarkListSync-4            319230   3628.00 ns/op     1200 B/op   25 allocs/op
-BenchmarkCircularSync-4        409224   2622.00 ns/op      560 B/op    5 allocs/op
-BenchmarkRingSync-4            336176   3340.00 ns/op      864 B/op   24 allocs/op
-BenchmarkQueueNativeSync-4     850284   1805.00 ns/op      368 B/op    4 allocs/op
-BenchmarkQueueChannelAsync-4   226658   5788.00 ns/op      440 B/op    4 allocs/op
-BenchmarkListAsync-4           147613   8006.00 ns/op     1216 B/op   26 allocs/op
-BenchmarkCircularAsync-4       165462   6991.00 ns/op      576 B/op    6 allocs/op
-BenchmarkRingAsync-4           171901   7170.00 ns/op      880 B/op   25 allocs/op
-BenchmarkQueueNativeAsync-4    256825   5322.00 ns/op      384 B/op    5 allocs/op
-ok  	dmh2000.xyz/queue	12.847s
+BenchmarkQueueChannelSync-4    619838   2016.00 ns/op      424 B/op    3 allocs/op
+BenchmarkListSync-4            362503   3680.00 ns/op     1200 B/op   25 allocs/op
+BenchmarkCircularSync-4        443493   2750.00 ns/op      560 B/op    5 allocs/op
+BenchmarkRingSync-4            459682   3233.00 ns/op      864 B/op   24 allocs/op
+BenchmarkSliceSync-4           421218   3412.00 ns/op     1216 B/op   10 allocs/op
+BenchmarkQueueNativeSync-4     628731   1846.00 ns/op      368 B/op    4 allocs/op
+BenchmarkQueueChannelAsync-4   221757   5603.00 ns/op      440 B/op    4 allocs/op
+BenchmarkListAsync-4           146414   8012.00 ns/op     1216 B/op   26 allocs/op
+BenchmarkCircularAsync-4       179154   7047.00 ns/op      576 B/op    6 allocs/op
+BenchmarkRingAsync-4           153898   7446.00 ns/op      880 B/op   25 allocs/op
+BenchmarkSliceAsync-4          159289   7494.00 ns/op     1231 B/op   11 allocs/op
+BenchmarkQueueNativeAsync-4    218642   5038.00 ns/op      384 B/op    5 allocs/op
+ok      dmh2000.xyz/queue       16.767s
 ```
+
+Here are the synchronous tests sorted by time/iter (second column). Least number indicates slowest. The number of iterations is skewed by the cost of preallocating in some cases so that isn't the best measure
+
+<pre>
+BenchmarkQueueNativeSync-4     628731   1846.00 ns/op      368 B/op    4 allocs/op
+BenchmarkQueueChannelSync-4    619838   2016.00 ns/op      424 B/op    3 allocs/op
+BenchmarkCircularSync-4        443493   2750.00 ns/op      560 B/op    5 allocs/op
+BenchmarkRingSync-4            459682   3233.00 ns/op      864 B/op   24 allocs/op
+BenchmarkSliceSync-4           421218   3412.00 ns/op     1216 B/op   10 allocs/op
+BenchmarkListSync-4            362503   3680.00 ns/op     1200 B/op   25 allocs/op
+</pre>
+
+- an 'op' is one execution of one iteration of the benchmark test in the **for i:=0;i<b.N;i++** loop
+- Looks like channels and native type versions work best, kind of as expected.
+- The versions using containers suffered from being more general purpose.
+- It also appears that fewer bytes allocated per op and number of allocations may be significant.
 
 #### Race Detector
 
@@ -512,22 +577,24 @@ The file [race_test.go](https://github.com/dmh2000/golang-sync-queue/blob/main/r
 ```bash
 $  go test -race -v -run Test.*Race .
 === RUN   TestChannelRace
---- PASS: TestChannelRace (24.55s)
+--- PASS: TestChannelRace (24.72s)
 === RUN   TestListRace
---- PASS: TestListRace (25.58s)
+--- PASS: TestListRace (25.11s)
 === RUN   TestCircularRace
---- PASS: TestCircularRace (25.16s)
+--- PASS: TestCircularRace (24.91s)
 === RUN   TestRingRace
---- PASS: TestRingRace (25.60s)
+--- PASS: TestRingRace (25.27s)
+=== RUN   TestSliceRace
+--- PASS: TestSliceRace (25.54s)
 === RUN   TestComboRace
---- PASS: TestComboRace (25.77s)
+--- PASS: TestComboRace (26.67s)
 === RUN   TestNativeRace
---- PASS: TestNativeRace (26.16s)
+--- PASS: TestNativeRace (25.25s)
 PASS
-ok      dmh2000.xyz/queue       152.852s
+ok      dmh2000.xyz/queue       177.500s
 ```
 
-No race conditions were detected. Since this is an artificial test it might not find problems that would occur in an actual application with a different call sequence.
+No race conditions were detected. Since this is an artificial test it might not find problems that would occur in an actual application with a different call sequence. Mutual exclusion is tricky! Don't assume an implementation works because it just looks right.
 
 #### Analysis
 
@@ -541,33 +608,38 @@ After running the benchmark tests above, the file mem.out contains information a
 $ go tool pprof mem.out
 File: queue.test
 Type: alloc_space
-Time: Mar 23, 2021 at 11:38am (PDT)
+Time: Mar 24, 2021 at 9:53am (PDT)
 Entering interactive mode (type "help" for commands, "o" for options)
-(pprof) top10
-Showing nodes accounting for 1.93GB, 99.39% of 1.94GB total
-Dropped 23 nodes (cum <= 0.01GB)
-Showing top 10 nodes out of 31
+(pprof) top15
+Showing nodes accounting for 3006.97MB, 99.32% of 3027.57MB total
+Dropped 42 nodes (cum <= 15.14MB)
+Showing top 15 nodes out of 35
       flat  flat%   sum%        cum   cum%
-    0.45GB 23.10% 23.10%     0.45GB 23.10%  container/list.(*List).insertValue (1)
-    0.32GB 16.61% 39.71%     0.32GB 16.61%  sync.NewCond (inline) (2)
-    0.30GB 15.53% 55.24%     0.30GB 15.53%  container/ring.New (inline) (3)
-    0.29GB 14.70% 69.94%     0.29GB 14.70%  dmh2000.xyz/queue.NewChannelQueue (4)
-    0.26GB 13.47% 83.41%     0.41GB 20.89%  dmh2000.xyz/queue.NewNativeQueue (4)
-    0.19GB  9.69% 93.10%     0.19GB  9.69%  dmh2000.xyz/queue.NewCircularQueue (4)
-    0.07GB  3.83% 96.92%     0.25GB 13.01%  dmh2000.xyz/queue.NewSynchronizedQueue (5)
-    0.02GB  0.96% 97.88%     0.02GB  0.96%  container/list.New
-    0.02GB  0.93% 98.81%     0.32GB 16.46%  dmh2000.xyz/queue.NewRingQueue
-    0.01GB  0.58% 99.39%     0.01GB  0.58%  dmh2000.xyz/queue.asyncb1
+  591.69MB 19.54% 19.54%   591.69MB 19.54%  dmh2000.xyz/queue.(*SliceQueue).Push
+  520.13MB 17.18% 36.72%   520.13MB 17.18%  dmh2000.xyz/queue.NewChannelQueue
+  486.02MB 16.05% 52.78%   486.02MB 16.05%  container/list.(*List).insertValue (inline)
+  408.02MB 13.48% 66.25%   408.02MB 13.48%  sync.NewCond (inline)
+  378.51MB 12.50% 78.76%   378.51MB 12.50%  container/ring.New (inline)
+  228.06MB  7.53% 86.29%   228.06MB  7.53%  dmh2000.xyz/queue.NewCircularQueue
+  201.03MB  6.64% 92.93%   308.53MB 10.19%  dmh2000.xyz/queue.NewNativeQueue
+  123.51MB  4.08% 97.01%   424.02MB 14.01%  dmh2000.xyz/queue.NewSynchronizedQueue
+      24MB  0.79% 97.80%       24MB  0.79%  container/list.New (inline)
+   20.50MB  0.68% 98.48%   399.01MB 13.18%  dmh2000.xyz/queue.NewRingQueue
+      20MB  0.66% 99.14%       20MB  0.66%  dmh2000.xyz/queue.NewSliceQueue
+    5.50MB  0.18% 99.32%    29.50MB  0.97%  dmh2000.xyz/queue.NewListQueue
+         0     0% 99.32%   486.02MB 16.05%  container/list.(*List).PushBack (inline)
+         0     0% 99.32%   486.02MB 16.05%  dmh2000.xyz/queue.(*ListQueue).Push
+         0     0% 99.32%  1077.71MB 35.60%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Put
 (pprof)
 ```
 
 - Notes
 
-  1. The List version is the slowest and takes the most memory
+  1. The slice and list versions both allocate a lot of memory and they do it per Put
 
-  - There is probably an allocation for every insertValue statement
-  - there is no preallocation in the List version
-  - this hits the runtime after initialization. s
+  - The list isn't preallocated
+  - There is probably an allocation for every Push (append) and insertValue statement
+  - this hits the runtime after initialization.
 
   2.  The creation of the condition variable uses a lot of time
 
@@ -585,7 +657,9 @@ Showing top 10 nodes out of 31
   - is appears that creating a Cond is a bit expensive
   - there is at least one system call involved there
 
-  6.  The rest of the hits are all less than 1%
+  6. The slice queue does an allocation when it appends an element
+
+  7. The rest of the hits are all less than 1%
 
 - Conclusion
   - Don't use a container/list !
@@ -598,30 +672,34 @@ Showing top 10 nodes out of 31
 $ go tool pprof cpu.out
 File: queue.test
 Type: cpu
-Time: Mar 23, 2021 at 11:38am (PDT)
-Duration: 12.83s, Total samples = 14.40s (112.20%)
+Time: Mar 24, 2021 at 9:52am (PDT)
+Duration: 16.75s, Total samples = 18.80s (112.24%)
 Entering interactive mode (type "help" for commands, "o" for options)
-(pprof) top10
-Showing nodes accounting for 6590ms, 45.76% of 14400ms total
-Dropped 143 nodes (cum <= 72ms)
-Showing top 10 nodes out of 149
+(pprof) top20
+Showing nodes accounting for 11610ms, 61.76% of 18800ms total
+Dropped 173 nodes (cum <= 94ms)
+Showing top 20 nodes out of 152
       flat  flat%   sum%        cum   cum%
-    1400ms  9.72%  9.72%     1400ms  9.72%  sync.(*Mutex).Lock
-    1270ms  8.82% 18.54%     1280ms  8.89%  sync.(*Mutex).Unlock
-     660ms  4.58% 23.12%     2320ms 16.11%  runtime.mallocgc
-     650ms  4.51% 27.64%      650ms  4.51%  runtime.futex
-     600ms  4.17% 31.81%      640ms  4.44%  runtime.lock2
-     550ms  3.82% 35.62%      770ms  5.35%  runtime.heapBitsSetType
-     420ms  2.92% 38.54%      420ms  2.92%  runtime.unlock2
-     360ms  2.50% 41.04%     1910ms 13.26%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Get
-     350ms  2.43% 43.47%     2350ms 16.32%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Put
-     330ms  2.29% 45.76%     1050ms  7.29%  dmh2000.xyz/queue.(*NativeIntQueue).Get
-(pprof) dmh2000@dmh2000-mint:~/projects/go/queue$ go tool pprof cpu.out
-File: queue.test
-Type: cpu
-Time: Mar 23, 2021 at 11:38am (PDT)
-Duration: 12.83s, Total samples = 14.40s (112.20%)
-Entering interactive mode (type "help" for commands, "o" for options)
+    1540ms  8.19%  8.19%     1540ms  8.19%  sync.(*Mutex).Unlock
+    1530ms  8.14% 16.33%     1540ms  8.19%  sync.(*Mutex).Lock
+     980ms  5.21% 21.54%     3380ms 17.98%  runtime.mallocgc
+     850ms  4.52% 26.06%      860ms  4.57%  runtime.unlock2
+     840ms  4.47% 30.53%      840ms  4.47%  runtime.futex
+     840ms  4.47% 35.00%     1060ms  5.64%  runtime.heapBitsSetType
+     800ms  4.26% 39.26%      820ms  4.36%  runtime.lock2
+     500ms  2.66% 41.91%      500ms  2.66%  runtime.nextFreeFast
+     430ms  2.29% 44.20%     2370ms 12.61%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Get
+     430ms  2.29% 46.49%     3630ms 19.31%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Put
+     390ms  2.07% 48.56%     6450ms 34.31%  dmh2000.xyz/queue.b1
+     350ms  1.86% 50.43%      350ms  1.86%  runtime.usleep
+     320ms  1.70% 52.13%      320ms  1.70%  runtime.casgstatus
+     320ms  1.70% 53.83%      870ms  4.63%  sync.(*Cond).Signal
+     310ms  1.65% 55.48%      310ms  1.65%  runtime.memclrNoHeapPointers
+     260ms  1.38% 56.86%      390ms  2.07%  sync.runtime_notifyListNotifyOne
+     240ms  1.28% 58.14%      240ms  1.28%  dmh2000.xyz/queue.(*CircularQueue).Push
+     230ms  1.22% 59.36%      230ms  1.22%  dmh2000.xyz/queue.(*CircularQueue).Pop
+     230ms  1.22% 60.59%      380ms  2.02%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Cap
+     220ms  1.17% 61.76%      750ms  3.99%  dmh2000.xyz/queue.(*NativeIntQueue).Get
 (pprof)
 ```
 

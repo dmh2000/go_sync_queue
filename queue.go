@@ -15,6 +15,9 @@ type Queue interface {
 
 	// dequeue and return a value from the head of the queue
 	Pop() (interface{},error)
+
+	// string representation
+	fmt.Stringer
 }
 
 // SynchronizedQueue is a queue with a bound on the number of elements in the queue

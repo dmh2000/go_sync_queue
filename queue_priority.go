@@ -3,6 +3,7 @@ package queue
 import (
 	"container/heap"
 	"errors"
+	"fmt"
 )
 
 // PriorityItem - for a type agnostic priority queue
@@ -67,6 +68,11 @@ func (pq *PriorityQueue) Pop() (interface{}, error) {
 	return value,nil
 }
 
+// String
+func (pq *PriorityQueue) String() string {
+	return fmt.Sprintf("PriorityQueue Len:%v Cap:%v",pq.Len(),pq.Cap())
+}
+
 // create a new heap queue
 func NewPriorityQueue(cap int) Queue {
 	var pq PriorityQueue
@@ -84,7 +90,7 @@ func NewPriorityQueue(cap int) Queue {
 }
 
 // wrap the heap queue in a Synchronized queue
-func NewSyncPriorityQueue(cap int) SynchronizedQueue {
+func NewSyncPriority(cap int) SynchronizedQueue {
 	var pq Queue
 	var bq SynchronizedQueue 
 

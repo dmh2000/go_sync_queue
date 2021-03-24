@@ -3,6 +3,7 @@ package queue
 import (
 	"container/list"
 	"errors"
+	"fmt"
 )
 
 // ListQueue backed by container/list
@@ -40,6 +41,12 @@ func (lq *ListQueue) Pop() (interface{}, error) {
 
 	return value,nil
 }
+
+// String
+func (lq *ListQueue)  String() string {
+	return fmt.Sprintf("ListQueue Len:%v Cap:%v",lq.Len(),lq.Cap())
+}
+
 
 func NewListQueue(cap int) Queue {
 	var lq ListQueue

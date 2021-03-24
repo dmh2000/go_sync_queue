@@ -36,7 +36,7 @@ func heap1(t *testing.T, q SynchronizedQueue) {
 	
 	// insert it the priority queue
 	for i:=0;i<q.Cap();i++ {
-		q.TryPut(PriorityItem(rval[i]))
+		q.TryPut(rval[i])
 		//length should be == i at this point
 		if q.Len() != (i+1) {
 			t.Error("length should == i+1",q.Len(),i+1)
@@ -91,5 +91,5 @@ func heap1(t *testing.T, q SynchronizedQueue) {
 // PRIORITY QUEUE using SynchronizedQueue wrapper
 func TestPrioritySync(t *testing.T) {
 	// test for heap to check priority  
-	heap1(t,NewSyncPriorityQueue(hqsize))
+	heap1(t,NewSyncPriority(hqsize))
 }

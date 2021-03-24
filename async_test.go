@@ -69,7 +69,7 @@ func consumer2(q *NativeIntQ, t *testing.T, wg *sync.WaitGroup) {
 func producer3(q SynchronizedQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
-		time.Sleep(time.Duration(rand.Int63n(250)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
 		q.Put(i)
 	}
 
@@ -86,7 +86,7 @@ func producer3(q SynchronizedQueue, wg *sync.WaitGroup) {
 func consumer3(q SynchronizedQueue, t *testing.T, wg *sync.WaitGroup)  {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
-		time.Sleep(time.Duration(rand.Int63n(250)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
 		value := q.Get()
 		// convert to int
 		v := value.(int)
@@ -97,6 +97,37 @@ func consumer3(q SynchronizedQueue, t *testing.T, wg *sync.WaitGroup)  {
 	wg.Done()
 }
 
+
+// 3 - blocking with random time delays
+func producer4(q *NativeIntQ, wg *sync.WaitGroup) {
+	// fill the queue with ints
+	for i:=0;i<q.Cap();i++ {
+		time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
+		q.Put(i)
+	}
+
+	// cleanup 
+	// for channels, this closes it for further Puts
+	// any remaing data is still available for Gets
+	// it is a noop for the mutex/condition variable methods
+	q.Close()
+	
+	// mark it done
+	wg.Done()
+}
+
+func consumer4(q *NativeIntQ, t *testing.T, wg *sync.WaitGroup)  {
+	// consume all items
+	for i:=0;i<q.Cap();i++ {
+		time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
+		value := q.Get()
+		// convert to int
+		if value != i {
+			t.Error("v should == i",value,i)
+		}
+	}
+	wg.Done()
+}
 
 func async1(t *testing.T, q SynchronizedQueue) {
 	var wg sync.WaitGroup
@@ -125,6 +156,14 @@ func async3(t *testing.T, q SynchronizedQueue) {
 	wg.Wait()
 }
 
+func async4(t *testing.T, q *NativeIntQ) {
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+	go producer4(q, &wg)
+	go consumer4(q,t,&wg)
+	wg.Wait()
+}
 
 func TestChannelAsync(t *testing.T) {
 	async1(t,NewChannelQueue(aqsize))
@@ -152,4 +191,5 @@ func TestComboAsync(t *testing.T) {
 
 func TestNativeAsync(t *testing.T) {
 	async2(t,NewNativeQueue(aqsize))
+	async4(t,NewNativeQueue(aqsize))
 }

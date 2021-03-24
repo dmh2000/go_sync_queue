@@ -80,7 +80,7 @@ func (chq *ChannelQ) Close() {
 
 // String
 func (chq *ChannelQ) String() string {
-	return fmt.Sprintf("Channel Len:%v Cap:%v",chq.Len(),chq.Cap())
+	return fmt.Sprintf("ChannelQ Len:%v Cap:%v",chq.Len(),chq.Cap())
 }
 
 // NewChannelQueue is a factory for creating bounded queues

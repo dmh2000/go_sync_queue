@@ -135,7 +135,7 @@ func (nvq *NativeIntQ) Close() {
 
 // String
 func (nvq *NativeIntQ) String() string {
-	return fmt.Sprintf("Native Len:%v Cap:%v",nvq.Len(),nvq.Cap())
+	return fmt.Sprintf("NativeIntQ Len:%v Cap:%v",nvq.Len(),nvq.Cap())
 }
 
 // NewNativeQueue is a factory for creating queues

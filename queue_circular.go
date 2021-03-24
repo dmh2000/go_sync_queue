@@ -2,6 +2,7 @@ package queue
 
 import (
 	"errors"
+	"fmt"
 )
 
 // Implementation of Queue interface using circular buffer
@@ -43,6 +44,12 @@ func (cb *CircularQueue) Pop() (interface{}, error) {
 
 	return value,nil
 }
+
+// String
+func (cb *CircularQueue) String() string {
+	return fmt.Sprintf("CircularQueue Len:%v Cap:%v",cb.Len(),cb.Cap())
+}
+
 
 func NewCircularQueue(cap int) Queue {
 	var cq CircularQueue

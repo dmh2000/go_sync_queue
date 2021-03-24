@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -189,9 +188,30 @@ func TestRingSync(t *testing.T) {
 }
 
 // Strings
-func TestQueueStrings(t *testing.T) {
-	fmt.Println(NewChannelQueue(sqsize))
-	fmt.Println(NewNativeQueue(sqsize))
-	fmt.Println(NewSyncCircular(sqsize))
-	fmt.Println(NewSyncList(sqsize))
+func TestStringsSync(t *testing.T) {
+	var q SynchronizedQueue
+	q = NewChannelQueue(sqsize)
+	q.Put(1)
+	t.Log(q.String())
+
+	q = NewSyncCircular(sqsize)
+	q.Put(1)
+	t.Log(q.String())
+
+	q = NewSyncList(sqsize)
+	q.Put(1)
+	t.Log(q.String())
+
+	q = NewSyncRing(sqsize)
+	q.Put(1)
+	t.Log(q.String())
+
+	q = NewSyncPriority(sqsize)
+	q.Put(PriorityItem{1,1})
+	t.Log(q.String())
+
+	// native queue isn't wrapped
+	nq := NewNativeQueue(sqsize)
+	nq.Put(1)
+	t.Log(nq.String())
 }

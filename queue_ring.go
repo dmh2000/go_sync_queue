@@ -3,6 +3,7 @@ package queue
 import (
 	"container/ring"
 	"errors"
+	"fmt"
 )
 
 // RingQueue - a Queue backed by a container/ring
@@ -53,6 +54,11 @@ func (rq *RingQueue) Pop() (interface{}, error) {
 	rq.length--
 
 	return value,nil
+}
+
+// String
+func (rq *RingQueue) String() string {
+	return fmt.Sprintf("RingQueue Len:%v Cap:%v",rq.Len(),rq.Cap())
 }
 
 func NewRingQueue(cap int) Queue {

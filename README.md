@@ -8,6 +8,10 @@ slug: "/syncqueue"
 
 All code files are in Github at [dmh2000/golang-sync-queue](https://github.com/dmh2000/golang-sync-queue)
 
+[There are eight million stories in the city. This has been one of them.](<https://en.wikipedia.org/wiki/Naked_City_(TV_series)>).
+
+**There are eight million examples of queues in Go. This is one of them.**
+
 ### Queue
 
 As most everyone knows, a queue is a data structure with first-in/first-out (FIFO) semantics.
@@ -415,8 +419,16 @@ $ go test -v -run Test.*Sync .
 --- PASS: TestListSync (0.00s)
 === RUN   TestRingSync
 --- PASS: TestRingSync (0.00s)
+=== RUN   TestStringsSync
+    sync_test.go:195: ChannelQ Len:1 Cap:8
+    sync_test.go:199: SynchronizedQueue:CircularQueue Len:1 Cap:8
+    sync_test.go:203: SynchronizedQueue:ListQueue Len:1 Cap:8
+    sync_test.go:207: SynchronizedQueue:RingQueue Len:1 Cap:8
+    sync_test.go:211: SynchronizedQueue:PriorityQueue Len:1 Cap:8
+    sync_test.go:216: NativeIntQ Len:1 Cap:8
+--- PASS: TestStringsSync (0.00s)
 PASS
-ok  	dmh2000.xyz/queue
+ok      dmh2000.xyz/queue       0.002s
 ```
 
 #### Asynchronous Tests
@@ -489,6 +501,30 @@ BenchmarkRingAsync-4           171901   7170.00 ns/op      880 B/op   25 allocs/
 BenchmarkQueueNativeAsync-4    256825   5322.00 ns/op      384 B/op    5 allocs/op
 ok  	dmh2000.xyz/queue	12.847s
 ```
+
+#### Race Detector
+
+The file [race_test.go](https://github.com/dmh2000/golang-sync-queue/blob/main/race_test.go) is uses the same test routines as the async_test.go but with a much larger queue size. It is used to run for a longer time to allow the go race detector to see more possible problems. Since one of the async tests uses time delays, this test will run for a few minutes.
+
+```bash
+$  go test -race -v -run Test.*Race .
+=== RUN   TestChannelRace
+--- PASS: TestChannelRace (24.55s)
+=== RUN   TestListRace
+--- PASS: TestListRace (25.58s)
+=== RUN   TestCircularRace
+--- PASS: TestCircularRace (25.16s)
+=== RUN   TestRingRace
+--- PASS: TestRingRace (25.60s)
+=== RUN   TestComboRace
+--- PASS: TestComboRace (25.77s)
+=== RUN   TestNativeRace
+--- PASS: TestNativeRace (26.16s)
+PASS
+ok      dmh2000.xyz/queue       152.852s
+```
+
+No race conditions were detected. Since this is an artificial test it might not find problems that would occur in an actual application with a different call sequence.
 
 #### Analysis
 

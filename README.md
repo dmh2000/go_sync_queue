@@ -31,7 +31,7 @@ Typically, if a queue is used for communication between threads it is expected t
 
 #### Why have a bound?
 
-Its possible to have an unbounded queue that never gets full. Using dynamic allocation you could implement an unbounded queue. In C++ a list or vector can grow until there is no available memroy. In Go, the container/list object has no bound on its number of elements. These are unbounded until you run out of memory. There is always an implicit bound. You might want to bound a queue as a type of throttling. Say a system has processing power that can only support N things going on a time. An input queue of capacity N would give it a way to stop accepting things until less than N are working. Or, maybe the design wants to know it has enough memory to support all its functions. In many real time systems there is a practice that calls for allocating all resources during initialization so that all the constraints are known and can be analyzed.
+Its possible to have an unbounded queue that never gets full. Using dynamic allocation you could implement an unbounded queue. In C++ a list or vector can grow until there is no available memory. In Go, the container/list object has no bound on its number of elements. These are unbounded until you run out of memory. There is always an implicit bound. You might want to bound a queue as a type of throttling. Say a system has processing power that can only support N things going on a time. An input queue of capacity N would give it a way to stop accepting things until less than N are working. Or, maybe the design wants to know it has enough memory to support all its functions. In many real time systems there is a practice that calls for allocating all resources during initialization so that all the constraints are known and can be analyzed.
 
 ### Queue API
 
@@ -80,7 +80,7 @@ There is one additional version that works like the Queue interface, where the d
 - NativeIntQ
   - queue using a circular buffer with mutex/condition variable
   - queue_native.go
-  - typesafe for 'int'
+  - type safe for 'int'
 
 At this point I'm not sure about the performance of any of these. We need to measure that.approaches.
 
@@ -126,9 +126,9 @@ type  SynchronizedQueue interface {
 
 #### Synchronized Queue Using Channels
 
-Of course, in the Go language, there are buffered channels, which literally are bounded queues. If you aren't familiar with Go channels, search for 'golang buffered channel' and there is lots of imformation. The official [Go Tour](https://tour.golang.org/concurrency/2) has a basic explanation. There are tons of references online about how to use buffered channels.
+Of course, in the Go language, there are buffered channels, which literally are bounded queues. If you aren't familiar with Go channels, search for 'golang buffered channel' and there is lots of information. The official [Go Tour](https://tour.golang.org/concurrency/2) has a basic explanation. There are tons of references online about how to use buffered channels.
 
-For channels there is an implementation of SyncrhonizedQueue without requiring the wrapper. There is no need for the Mutex/Cond support when you use channels.
+For channels there is an implementation of SynchronizedQueue without requiring the wrapper. There is no need for the Mutex/Cond support when you use channels.
 
 See file [queue_channel.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_channel.go).
 
@@ -150,9 +150,9 @@ func NewSynchronizedQueue(q Queue) SynchronizedQueue
 
 If you are familiar with the Mutex/Condition Variable paradigm, you can skip this section.
 
-A Condition Variable is a synchronization object that allow threads to wait until a condition occurs. It does this in conjunction with a Mutex to provide mutual exclusion. The implemenation of a interthread queue is a typical usage of a Mutex/Condition variable pair.
+A Condition Variable is a synchronization object that allow threads to wait until a condition occurs. It does this in conjunction with a Mutex to provide mutual exclusion. The implementation of a interthread queue is a typical usage of a Mutex/Condition variable pair.
 
-In the Go language, the standard libary package 'sync' provides both _Mutex_ and _Cond_. It works like this:
+In the Go language, the standard library package 'sync' provides both _Mutex_ and _Cond_. It works like this:
 
 ```go
 
@@ -201,7 +201,7 @@ func f(cvr *sync.Cond) {
 }
 ```
 
-#### SyncrhonizedQueue Implementation
+#### SynchronizedQueue Implementation
 
 The file [queue_sync.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_sync.go) has the wrapper for a Queue that provide thread-safety using Mutex/Condition Variable support.
 
@@ -383,7 +383,7 @@ func NewSyncPriorityQueue(cap int) SynchronizedQueue {
 	// create the int heap
 	pq = NewPriorityQueue(cap)
 
-	// wrap it in the syncrhonized bounded queue
+	// wrap it in the synchronized bounded queue
 	bq = NewSynchronizedQueue(pq)
 
 	return bq
@@ -443,19 +443,19 @@ As of this writing, all the synchronous tests pass.
 # . build with all files in current directory
 $ go test -v -run Test.*Async .
 === RUN   TestChannelAsync
---- PASS: TestChannelAsync (0.95s)
+--- PASS: TestChannelAsync (0.23s)
 === RUN   TestListAsync
---- PASS: TestListAsync (1.29s)
+--- PASS: TestListAsync (0.25s)
 === RUN   TestCircularAsync
---- PASS: TestCircularAsync (1.44s)
+--- PASS: TestCircularAsync (0.16s)
 === RUN   TestRingAsync
---- PASS: TestRingAsync (1.37s)
+--- PASS: TestRingAsync (0.23s)
 === RUN   TestComboAsync
---- PASS: TestComboAsync (0.85s)
+--- PASS: TestComboAsync (0.13s)
 === RUN   TestNativeAsync
---- PASS: TestNativeAsync (0.00s)
+--- PASS: TestNativeAsync (0.27s)
 PASS
-ok  	dmh2000.xyz/queue
+ok      dmh2000.xyz/queue       1.262s
 ```
 
 #### Benchmarks

@@ -38,7 +38,7 @@ Its possible to have an unbounded queue that never gets full. Using dynamic allo
 Here is an interface definition for a simple FIFO queue with a set bound. This interface does not support blocking semantics. Its intended to specify the methods needed to encapsulate an underlying data structure.
 
 ```go
-// Queue - interface for a simple, non-thread-safe queue with a set capacity
+// Queue - interface for a simple, non-thread-safe queue
 type Queue interface {
 	// current number of elements in the queue
 	Len() int
@@ -51,35 +51,38 @@ type Queue interface {
 
 	// dequeue and return a value from the head of the queue
 	Pop() (interface{},error)
-}
 
+	// string representation
+	fmt.Stringer
+}
 ```
 
 #### Implementations
 
 I have several implementations of the Queue interface.
 
-- ListQ
+- ListQueue
   - queue using a container/list
-  - **queue_list.go**
-- RingQ
+  - [queue_list.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_list.go).
+- RingQueue
   - queue using a container/ring
-  - **queue_ring.go**
-- HeapQ
+  - [queue_ring.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_ring.go).
+- CircularQueue
+  - queue using a homegrown circular buffer
+  - [queue_circular.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_circular.go).
+- PriorityQueue
   - queue using a container/heap
-  - **queue_heap.go**
+  - [queue_priority.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_priority.go).
   - in this case, its implemented as a priority queue rather than FIFO
-- CircularQ
-  - queue using a circular buffer
-  - **queue_circular.go**
+  - data elements have to be PriorityItem
 
 The data elements are interface{} so any type can be used. This matches some of the approaches in the standard library for certain data structures. These implementations can be passed to any function needed a Queue.
 
 There is one additional version that works like the Queue interface, where the data type is a native 'int' instead of interface{}. It uses the circular buffer approach but since its not using interface{} it might have better performance. The analysis will tell us that.
 
-- NativeIntQ
+- NativeIntQueue
   - queue using a circular buffer with mutex/condition variable
-  - queue_native.go
+  - [queue_native.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_native.go).
   - type safe for 'int'
 
 At this point I'm not sure about the performance of any of these. We need to measure that.approaches.
@@ -209,14 +212,14 @@ The file [queue_sync.go](https://github.com/dmh2000/golang-sync-queue/blob/main/
 // SynchronizedQueueImpl is an implementation of the SynchronizedQueue interface
 // using a Mutex and 2 condition variables.
 type SynchronizedQueueImpl struct {
-	queue Queue	    // some data structure for backing the queue
+	queue Queue	        // some data structure for backing the queue
 	mtx sync.Mutex      // a mutex for mutual exclusion
 	putcv *sync.Cond    // a condition variable for controlling Puts
 	getcv *sync.Cond    // a condition variable for controlling Gets
 }
 ```
 
-Note that there are two condition variables band a single mutex. That is to support blocking on both ends, Put and Get. The single mutex protects the data structure in both the Put and Get calls. Put operations block on the **putcv** condition variable and signals the **getcv** condition variable when the Put adds an element to the queue. A Get operation works in the opposite direction, blocking on the **getcv** condition variable and signalling the **putcv** condition variable when an element is removed from the queue.
+Note that there are two condition variables and a single mutex. That is to support blocking on both ends, Put and Get. The single mutex protects the data structure in both the Put and Get calls. Put operations block on the **putcv** condition variable and signals the **getcv** condition variable when the Put adds an element to the queue. A Get operation works in the opposite direction, blocking on the **getcv** condition variable and signalling the **putcv** condition variable when an element is removed from the queue.
 
 The non-blocking TryPut and TryGet operations still need to signal their opposite condition variable in case the other end is using the blocking version.
 
@@ -232,7 +235,7 @@ See file [queue_list.go](https://github.com/dmh2000/golang-sync-queue/blob/main/
 // needed for the Queue interface, with the exception of a capacity.
 type ListQueue struct {
 	list *list.List	 // contains the elements currently in the queue
-	capacity int	     // maximum number of elements the queue can hold
+	capacity int	 // maximum number of elements the queue can hold
 }
 
 // ...
@@ -324,8 +327,8 @@ This version uses a circular buffer as the queue data structure. It is almost id
 See file [queue_native.go](https://github.com/dmh2000/golang-sync-queue/blob/main/queue_native.go).
 
 ```go
-// NativeIntQ iis a type specific implementation
-type NativeIntQ struct {
+// NativeIntQueue iis a type specific implementation
+type NativeIntQueue struct {
 	queue []int			// data
 	head     int		// items are pulled from the head
 	tail     int		// items are pushed to the tail
@@ -339,8 +342,8 @@ type NativeIntQ struct {
 // NewNativeQueue is a factory for creating queues
 // that use a condition variable and circular buffer
 // for the specific type. In this case 'int'.
-func NewNativeQueue(size int) *NativeIntQ {
-	var nvq NativeIntQ
+func NewNativeQueue(size int) *NativeIntQueue {
+	var nvq NativeIntQueue
 
 	// allocate the whole slice during init
 	nvq.queue = make([]int,size,size)
@@ -425,7 +428,7 @@ $ go test -v -run Test.*Sync .
     sync_test.go:203: SynchronizedQueue:ListQueue Len:1 Cap:8
     sync_test.go:207: SynchronizedQueue:RingQueue Len:1 Cap:8
     sync_test.go:211: SynchronizedQueue:PriorityQueue Len:1 Cap:8
-    sync_test.go:216: NativeIntQ Len:1 Cap:8
+    sync_test.go:216: NativeIntQueue Len:1 Cap:8
 --- PASS: TestStringsSync (0.00s)
 PASS
 ok      dmh2000.xyz/queue       0.002s
@@ -612,7 +615,7 @@ Showing top 10 nodes out of 149
      420ms  2.92% 38.54%      420ms  2.92%  runtime.unlock2
      360ms  2.50% 41.04%     1910ms 13.26%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Get
      350ms  2.43% 43.47%     2350ms 16.32%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Put
-     330ms  2.29% 45.76%     1050ms  7.29%  dmh2000.xyz/queue.(*NativeIntQ).Get
+     330ms  2.29% 45.76%     1050ms  7.29%  dmh2000.xyz/queue.(*NativeIntQueue).Get
 (pprof) dmh2000@dmh2000-mint:~/projects/go/queue$ go tool pprof cpu.out
 File: queue.test
 Type: cpu

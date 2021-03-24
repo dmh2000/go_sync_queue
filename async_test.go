@@ -46,7 +46,7 @@ func consumer1(q SynchronizedQueue, t *testing.T, wg *sync.WaitGroup)  {
 }
 
 // - blocking with native ints, no delays
-func producer2(q *NativeIntQ, wg *sync.WaitGroup) {
+func producer2(q *NativeIntQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		q.Put(i)
@@ -54,7 +54,7 @@ func producer2(q *NativeIntQ, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func consumer2(q *NativeIntQ, t *testing.T, wg *sync.WaitGroup) {
+func consumer2(q *NativeIntQueue, t *testing.T, wg *sync.WaitGroup) {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
 		v := q.Get()
@@ -99,7 +99,7 @@ func consumer3(q SynchronizedQueue, t *testing.T, wg *sync.WaitGroup)  {
 
 
 // 3 - blocking with random time delays
-func producer4(q *NativeIntQ, wg *sync.WaitGroup) {
+func producer4(q *NativeIntQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
@@ -116,7 +116,7 @@ func producer4(q *NativeIntQ, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func consumer4(q *NativeIntQ, t *testing.T, wg *sync.WaitGroup)  {
+func consumer4(q *NativeIntQueue, t *testing.T, wg *sync.WaitGroup)  {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
 		time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
@@ -138,7 +138,7 @@ func async1(t *testing.T, q SynchronizedQueue) {
 	wg.Wait()
 }
 
-func async2(t *testing.T, q *NativeIntQ) {
+func async2(t *testing.T, q *NativeIntQueue) {
 	var wg sync.WaitGroup
 
 	wg.Add(2)
@@ -156,7 +156,7 @@ func async3(t *testing.T, q SynchronizedQueue) {
 	wg.Wait()
 }
 
-func async4(t *testing.T, q *NativeIntQ) {
+func async4(t *testing.T, q *NativeIntQueue) {
 	var wg sync.WaitGroup
 
 	wg.Add(2)

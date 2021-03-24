@@ -82,7 +82,7 @@ func sync1(t *testing.T, q SynchronizedQueue) {
 
 
 // test an instance of a SynchronizedQueue
-func sync2(t *testing.T, q *NativeIntQ) {
+func sync2(t *testing.T, q *NativeIntQueue) {
 	var err error
 
 	if q == nil {

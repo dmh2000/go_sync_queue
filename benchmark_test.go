@@ -33,7 +33,7 @@ func b1(b *testing.B, q SynchronizedQueue) {
 	}
 }
 
-func b2(b *testing.B, q *NativeIntQ) {
+func b2(b *testing.B, q *NativeIntQueue) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		var x int
@@ -123,7 +123,7 @@ func consumer1a(q SynchronizedQueue, b *testing.B, wg *sync.WaitGroup)  {
 }
 
 // - blocking with native ints, no delays
-func producer2a(q *NativeIntQ, wg *sync.WaitGroup) {
+func producer2a(q *NativeIntQueue, wg *sync.WaitGroup) {
 	// fill the queue with ints
 	for i:=0;i<q.Cap();i++ {
 		q.Put(i)
@@ -131,7 +131,7 @@ func producer2a(q *NativeIntQ, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func consumer2a(q *NativeIntQ, b *testing.B, wg *sync.WaitGroup) {
+func consumer2a(q *NativeIntQueue, b *testing.B, wg *sync.WaitGroup) {
 	// consume all items
 	for i:=0;i<q.Cap();i++ {
 		v := q.Get()
@@ -152,7 +152,7 @@ func asyncb1(b *testing.B, q SynchronizedQueue) {
 	wg.Wait()
 }
 
-func asyncb2(b *testing.B, q *NativeIntQ) {
+func asyncb2(b *testing.B, q *NativeIntQueue) {
 	var wg sync.WaitGroup
 
 	wg.Add(2)

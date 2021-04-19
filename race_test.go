@@ -5,7 +5,7 @@ import (
 )
 
 // test variables
-const rqsize int = 1000
+const rqsize int = 100
 
 
 // ===================

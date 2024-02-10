@@ -451,7 +451,7 @@ As of this writing, all the synchronous tests pass.
 # -v : verbose output
 # -run <regex> : run only test functions match the regex
 # . build with all files in current directory
-$ go test -v -run Test.*Sync .
+$ go test -v -run Test.*Sync . | tee sync.out
 === RUN   TestPrioritySync
 --- PASS: TestPrioritySync (0.00s)
 === RUN   TestChannelSync
@@ -476,7 +476,7 @@ $ go test -v -run Test.*Sync .
     sync_test.go:226: NativeIntQueue Len:1 Cap:8
 --- PASS: TestStringsSync (0.00s)
 PASS
-ok      dmh2000.xyz/queue       0.002s
+ok      dmh2000.xyz/queue
 ```
 
 #### Asynchronous Tests
@@ -491,21 +491,21 @@ As of this writing, all the synchronous tests pass.
 # . build with all files in current directory
 $ go test -v -run Test.*Async .
 === RUN   TestChannelAsync
---- PASS: TestChannelAsync (0.23s)
+--- PASS: TestChannelAsync (0.27s)
 === RUN   TestListAsync
---- PASS: TestListAsync (0.25s)
+--- PASS: TestListAsync (0.24s)
 === RUN   TestCircularAsync
---- PASS: TestCircularAsync (0.16s)
+--- PASS: TestCircularAsync (0.25s)
 === RUN   TestRingAsync
 --- PASS: TestRingAsync (0.23s)
 === RUN   TestSliceAsync
---- PASS: TestSliceAsync (0.13s)
+--- PASS: TestSliceAsync (0.25s)
 === RUN   TestComboAsync
---- PASS: TestComboAsync (0.27s)
+--- PASS: TestComboAsync (0.21s)
 === RUN   TestNativeAsync
---- PASS: TestNativeAsync (0.20s)
+--- PASS: TestNativeAsync (0.22s)
 PASS
-ok      dmh2000.xyz/queue       1.459s
+ok  	dmh2000.xyz/queue	
 ```
 
 #### Benchmarks
@@ -520,40 +520,37 @@ The file [benchmark_test.go](https://github.com/dmh2000/go_sync_queue/blob/main/
 # -benchmem : measure memory usage
 # -memprofile <file> : write memory usage information to <file>
 # -cpuprofile <file> : write cpu usage information to <file>
-# note : uses https://github.com/cespare/prettybench to format the output
-$ go test -v -run Benchmark.* -bench . -benchmem -memprofile mem.out -cpuprofile cpu.out | prettybench
+$ go test -v -run Benchmark.* -bench . -benchmem -memprofile mem.out -cpuprofile cpu.out
 goos: linux
 goarch: amd64
 pkg: dmh2000.xyz/queue
-cpu: Intel(R) Core(TM) i5-3470 CPU @ 3.20GHz
+cpu: AMD Ryzen 7 3700X 8-Core Processor             
 BenchmarkQueueChannelSync
+BenchmarkQueueChannelSync-16     	 1330677	       915.3 ns/op	     424 B/op	       3 allocs/op
 BenchmarkListSync
+BenchmarkListSync-16             	  539108	      2115 ns/op	    1200 B/op	      25 allocs/op
 BenchmarkCircularSync
+BenchmarkCircularSync-16         	  920787	      1260 ns/op	     560 B/op	       5 allocs/op
 BenchmarkRingSync
+BenchmarkRingSync-16             	  597390	      1842 ns/op	     864 B/op	      24 allocs/op
 BenchmarkSliceSync
+BenchmarkSliceSync-16            	  663648	      1615 ns/op	    1216 B/op	      10 allocs/op
 BenchmarkQueueNativeSync
+BenchmarkQueueNativeSync-16      	 1470663	       812.7 ns/op	     368 B/op	       4 allocs/op
 BenchmarkQueueChannelAsync
+BenchmarkQueueChannelAsync-16    	  458401	      2386 ns/op	     520 B/op	       6 allocs/op
 BenchmarkListAsync
+BenchmarkListAsync-16            	  319388	      3505 ns/op	    1296 B/op	      28 allocs/op
 BenchmarkCircularAsync
+BenchmarkCircularAsync-16        	  426242	      2646 ns/op	     656 B/op	       8 allocs/op
 BenchmarkRingAsync
+BenchmarkRingAsync-16            	  304796	      3514 ns/op	     960 B/op	      27 allocs/op
 BenchmarkSliceAsync
+BenchmarkSliceAsync-16           	  372702	      3019 ns/op	    1312 B/op	      13 allocs/op
 BenchmarkQueueNativeAsync
+BenchmarkQueueNativeAsync-16     	  486388	      2223 ns/op	     440 B/op	       7 allocs/op
 PASS
-benchmark                        iter       time/iter   bytes alloc         allocs
----------                        ----       ---------   -----------         ------
-BenchmarkQueueChannelSync-4    619838   2016.00 ns/op      424 B/op    3 allocs/op
-BenchmarkListSync-4            362503   3680.00 ns/op     1200 B/op   25 allocs/op
-BenchmarkCircularSync-4        443493   2750.00 ns/op      560 B/op    5 allocs/op
-BenchmarkRingSync-4            459682   3233.00 ns/op      864 B/op   24 allocs/op
-BenchmarkSliceSync-4           421218   3412.00 ns/op     1216 B/op   10 allocs/op
-BenchmarkQueueNativeSync-4     628731   1846.00 ns/op      368 B/op    4 allocs/op
-BenchmarkQueueChannelAsync-4   221757   5603.00 ns/op      440 B/op    4 allocs/op
-BenchmarkListAsync-4           146414   8012.00 ns/op     1216 B/op   26 allocs/op
-BenchmarkCircularAsync-4       179154   7047.00 ns/op      576 B/op    6 allocs/op
-BenchmarkRingAsync-4           153898   7446.00 ns/op      880 B/op   25 allocs/op
-BenchmarkSliceAsync-4          159289   7494.00 ns/op     1231 B/op   11 allocs/op
-BenchmarkQueueNativeAsync-4    218642   5038.00 ns/op      384 B/op    5 allocs/op
-ok      dmh2000.xyz/queue       16.767s
+ok  	dmh2000.xyz/queue	15.664s
 ```
 
 Here are the synchronous tests sorted by time/iter (second column). Least number indicates slowest. The number of iterations is skewed by the cost of preallocating in some cases so that isn't the best measure
@@ -577,23 +574,60 @@ BenchmarkListSync-4            362503   3680.00 ns/op     1200 B/op   25 allocs/
 The file [race_test.go](https://github.com/dmh2000/go_sync_queue/blob/main/race_test.go) is uses the same test routines as the async_test.go but with a much larger queue size. It is used to run for a longer time to allow the go race detector to see more possible problems. Since one of the async tests uses time delays, this test will run for a few minutes.
 
 ```bash
-$  go test -race -v -run Test.*Race .
+$  go test -v -race *.go 
+=== RUN   TestChannelAsync
+--- PASS: TestChannelAsync (0.30s)
+=== RUN   TestListAsync
+--- PASS: TestListAsync (0.20s)
+=== RUN   TestCircularAsync
+--- PASS: TestCircularAsync (0.19s)
+=== RUN   TestRingAsync
+--- PASS: TestRingAsync (0.28s)
+=== RUN   TestSliceAsync
+--- PASS: TestSliceAsync (0.21s)
+=== RUN   TestComboAsync
+--- PASS: TestComboAsync (0.21s)
+=== RUN   TestNativeAsync
+--- PASS: TestNativeAsync (0.25s)
+=== RUN   TestPrioritySync
+--- PASS: TestPrioritySync (0.00s)
 === RUN   TestChannelRace
---- PASS: TestChannelRace (24.72s)
+--- PASS: TestChannelRace (2.82s)
 === RUN   TestListRace
---- PASS: TestListRace (25.11s)
+--- PASS: TestListRace (2.58s)
 === RUN   TestCircularRace
---- PASS: TestCircularRace (24.91s)
+--- PASS: TestCircularRace (2.63s)
 === RUN   TestRingRace
---- PASS: TestRingRace (25.27s)
+--- PASS: TestRingRace (2.61s)
 === RUN   TestSliceRace
---- PASS: TestSliceRace (25.54s)
+--- PASS: TestSliceRace (2.72s)
 === RUN   TestComboRace
---- PASS: TestComboRace (26.67s)
+--- PASS: TestComboRace (2.66s)
 === RUN   TestNativeRace
---- PASS: TestNativeRace (25.25s)
+--- PASS: TestNativeRace (2.57s)
+=== RUN   TestChannelSync
+--- PASS: TestChannelSync (0.00s)
+=== RUN   TestQueueNativeSync
+--- PASS: TestQueueNativeSync (0.00s)
+=== RUN   TestCircularQueueSync
+--- PASS: TestCircularQueueSync (0.00s)
+=== RUN   TestListSync
+--- PASS: TestListSync (0.00s)
+=== RUN   TestRingSync
+--- PASS: TestRingSync (0.00s)
+=== RUN   TestSliceSync
+--- PASS: TestSliceSync (0.00s)
+=== RUN   TestStringsSync
+    sync_test.go:201: ChannelQ Len:1 Cap:8
+    sync_test.go:205: SynchronizedQueue:CircularQueue Len:1 Cap:8
+    sync_test.go:209: SynchronizedQueue:ListQueue Len:1 Cap:8
+    sync_test.go:213: SynchronizedQueue:RingQueue Len:1 Cap:8
+    sync_test.go:217: SynchronizedQueue:PriorityQueue Len:1 Cap:8
+    sync_test.go:221: SynchronizedQueue:SliceQueue Len:1 Cap:8
+    sync_test.go:226: NativeIntQueue Len:1 Cap:8
+--- PASS: TestStringsSync (0.00s)
 PASS
-ok      dmh2000.xyz/queue       177.500s
+ok  	command-line-arguments	21.239s
 ```
 
 No race conditions were detected. Since this is an artificial test it might not find problems that would occur in an actual application with a different call sequence. Mutual exclusion is tricky! Don't assume an implementation works because it just looks right.
@@ -607,32 +641,29 @@ After running the benchmark tests above, the file mem.out contains information a
 ```bash
 # run the pprof tool with input file mem.out
 # (pprof) top10 : shows top 10 locations for memory allocation
-$ go tool pprof mem.out
+$ go tool pprof -top  -nodecount=15 mem.out
 File: queue.test
 Type: alloc_space
-Time: Mar 24, 2021 at 9:53am (PDT)
-Entering interactive mode (type "help" for commands, "o" for options)
-(pprof) top15
-Showing nodes accounting for 3006.97MB, 99.32% of 3027.57MB total
-Dropped 42 nodes (cum <= 15.14MB)
-Showing top 15 nodes out of 35
+Time: Feb 10, 2024 at 1:32am (UTC)
+Showing nodes accounting for 5.98GB, 99.94% of 5.98GB total
+Dropped 29 nodes (cum <= 0.03GB)
+Showing top 15 nodes out of 37
       flat  flat%   sum%        cum   cum%
-  591.69MB 19.54% 19.54%   591.69MB 19.54%  dmh2000.xyz/queue.(*SliceQueue).Push
-  520.13MB 17.18% 36.72%   520.13MB 17.18%  dmh2000.xyz/queue.NewChannelQueue
-  486.02MB 16.05% 52.78%   486.02MB 16.05%  container/list.(*List).insertValue (inline)
-  408.02MB 13.48% 66.25%   408.02MB 13.48%  sync.NewCond (inline)
-  378.51MB 12.50% 78.76%   378.51MB 12.50%  container/ring.New (inline)
-  228.06MB  7.53% 86.29%   228.06MB  7.53%  dmh2000.xyz/queue.NewCircularQueue
-  201.03MB  6.64% 92.93%   308.53MB 10.19%  dmh2000.xyz/queue.NewNativeQueue
-  123.51MB  4.08% 97.01%   424.02MB 14.01%  dmh2000.xyz/queue.NewSynchronizedQueue
-      24MB  0.79% 97.80%       24MB  0.79%  container/list.New (inline)
-   20.50MB  0.68% 98.48%   399.01MB 13.18%  dmh2000.xyz/queue.NewRingQueue
-      20MB  0.66% 99.14%       20MB  0.66%  dmh2000.xyz/queue.NewSliceQueue
-    5.50MB  0.18% 99.32%    29.50MB  0.97%  dmh2000.xyz/queue.NewListQueue
-         0     0% 99.32%   486.02MB 16.05%  container/list.(*List).PushBack (inline)
-         0     0% 99.32%   486.02MB 16.05%  dmh2000.xyz/queue.(*ListQueue).Push
-         0     0% 99.32%  1077.71MB 35.60%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Put
-(pprof)
+    1.11GB 18.49% 18.49%     1.11GB 18.49%  dmh2000.xyz/queue.NewChannelQueue
+    1.01GB 16.88% 35.37%     1.01GB 16.88%  dmh2000.xyz/queue.(*SliceQueue).Push
+    0.89GB 14.80% 50.17%     0.89GB 14.80%  sync.NewCond (inline)
+    0.81GB 13.50% 63.68%     0.81GB 13.50%  container/list.(*List).insertValue (inline)
+    0.66GB 11.02% 74.70%     1.04GB 17.31%  dmh2000.xyz/queue.NewNativeQueue
+    0.54GB  8.98% 83.68%     0.54GB  8.98%  container/ring.New (inline)
+    0.47GB  7.87% 91.54%     0.47GB  7.87%  dmh2000.xyz/queue.NewCircularQueue
+    0.18GB  2.95% 94.49%     0.69GB 11.46%  dmh2000.xyz/queue.NewSynchronizedQueue
+    0.16GB  2.71% 97.20%     0.16GB  2.71%  dmh2000.xyz/queue.asyncb1
+    0.04GB  0.72% 97.92%     0.58GB  9.69%  dmh2000.xyz/queue.NewRingQueue
+    0.04GB  0.65% 98.57%     0.04GB  0.65%  dmh2000.xyz/queue.asyncb2
+    0.04GB   0.6% 99.17%     0.04GB   0.6%  container/list.New (inline)
+    0.04GB  0.59% 99.76%     0.04GB  0.59%  dmh2000.xyz/queue.NewSliceQueue
+    0.01GB  0.18% 99.94%     0.05GB  0.78%  dmh2000.xyz/queue.NewListQueue
+         0     0% 99.94%     0.81GB 13.50%  container/list.(*List).PushBack
 ```
 
 - Notes
@@ -671,38 +702,35 @@ Showing top 15 nodes out of 35
 ```bash
 # run the pprof tool with input file cpu.out
 # (pprof) top10 : shows top 10 locations for cpu usage
-$ go tool pprof cpu.out
+$ go tool pprof -top -nodecount=20  cpu.out
 File: queue.test
 Type: cpu
-Time: Mar 24, 2021 at 9:52am (PDT)
-Duration: 16.75s, Total samples = 18.80s (112.24%)
-Entering interactive mode (type "help" for commands, "o" for options)
-(pprof) top20
-Showing nodes accounting for 11610ms, 61.76% of 18800ms total
-Dropped 173 nodes (cum <= 94ms)
-Showing top 20 nodes out of 152
+Time: Feb 10, 2024 at 1:31am (UTC)
+Duration: 15.46s, Total samples = 13090ms (84.67%)
+Showing nodes accounting for 8250ms, 63.03% of 13090ms total
+Dropped 184 nodes (cum <= 65.45ms)
+Showing top 20 nodes out of 156
       flat  flat%   sum%        cum   cum%
-    1540ms  8.19%  8.19%     1540ms  8.19%  sync.(*Mutex).Unlock
-    1530ms  8.14% 16.33%     1540ms  8.19%  sync.(*Mutex).Lock
-     980ms  5.21% 21.54%     3380ms 17.98%  runtime.mallocgc
-     850ms  4.52% 26.06%      860ms  4.57%  runtime.unlock2
-     840ms  4.47% 30.53%      840ms  4.47%  runtime.futex
-     840ms  4.47% 35.00%     1060ms  5.64%  runtime.heapBitsSetType
-     800ms  4.26% 39.26%      820ms  4.36%  runtime.lock2
-     500ms  2.66% 41.91%      500ms  2.66%  runtime.nextFreeFast
-     430ms  2.29% 44.20%     2370ms 12.61%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Get
-     430ms  2.29% 46.49%     3630ms 19.31%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Put
-     390ms  2.07% 48.56%     6450ms 34.31%  dmh2000.xyz/queue.b1
-     350ms  1.86% 50.43%      350ms  1.86%  runtime.usleep
-     320ms  1.70% 52.13%      320ms  1.70%  runtime.casgstatus
-     320ms  1.70% 53.83%      870ms  4.63%  sync.(*Cond).Signal
-     310ms  1.65% 55.48%      310ms  1.65%  runtime.memclrNoHeapPointers
-     260ms  1.38% 56.86%      390ms  2.07%  sync.runtime_notifyListNotifyOne
-     240ms  1.28% 58.14%      240ms  1.28%  dmh2000.xyz/queue.(*CircularQueue).Push
-     230ms  1.22% 59.36%      230ms  1.22%  dmh2000.xyz/queue.(*CircularQueue).Pop
-     230ms  1.22% 60.59%      380ms  2.02%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Cap
-     220ms  1.17% 61.76%      750ms  3.99%  dmh2000.xyz/queue.(*NativeIntQueue).Get
-(pprof)
+    1480ms 11.31% 11.31%     1480ms 11.31%  runtime.futex
+     850ms  6.49% 17.80%     2790ms 21.31%  runtime.mallocgc
+     700ms  5.35% 23.15%     2230ms 17.04%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Put
+     610ms  4.66% 27.81%      610ms  4.66%  sync.(*Mutex).Lock
+     520ms  3.97% 31.78%      520ms  3.97%  sync.(*Mutex).Unlock
+     460ms  3.51% 35.29%      470ms  3.59%  runtime.unlock2
+     440ms  3.36% 38.66%      980ms  7.49%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Get
+     380ms  2.90% 41.56%      800ms  6.11%  dmh2000.xyz/queue.(*NativeIntQueue).Put
+     360ms  2.75% 44.31%      360ms  2.75%  runtime.nextFreeFast (inline)
+     260ms  1.99% 46.29%      650ms  4.97%  dmh2000.xyz/queue.(*NativeIntQueue).Get
+     260ms  1.99% 48.28%     3940ms 30.10%  dmh2000.xyz/queue.b1
+     260ms  1.99% 50.27%      260ms  1.99%  runtime.usleep
+     260ms  1.99% 52.25%      260ms  1.99%  runtime.writeHeapBits.flush
+     250ms  1.91% 54.16%      310ms  2.37%  runtime.lock2
+     230ms  1.76% 55.92%      230ms  1.76%  dmh2000.xyz/queue.(*SynchronizedQueueImpl).Cap
+     220ms  1.68% 57.60%      220ms  1.68%  runtime.memclrNoHeapPointers
+     190ms  1.45% 59.05%      190ms  1.45%  sync.(*copyChecker).check (inline)
+     180ms  1.38% 60.43%      630ms  4.81%  runtime.heapBitsSetType
+     170ms  1.30% 61.73%      850ms  6.49%  runtime.chanrecv
+     170ms  1.30% 63.03%      170ms  1.30%  runtime.releasem (inline)
 ```
 
 - Notes

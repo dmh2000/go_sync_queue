@@ -14,6 +14,23 @@ go test -v -run Test.*Async . | tee async.out
 echo "==================="
 echo "BENCHMARKS         "
 echo "==================="
-# uses https://github.com/cespare/prettybench
 echo "go test -v -run Benchmark.* -bench . -benchmem -memprofile mem.out -cpuprofile cpu.out"
-go test -v -run Benchmark.* -bench . -benchmem -memprofile mem.out -cpuprofile cpu.out | prettybench | tee bench.out
+go test -v -run Benchmark.* -bench . -benchmem -memprofile mem.out -cpuprofile cpu.out | tee
+
+echo "==================="
+echo "RACE               "
+echo "==================="
+echo "go test -v -race *.go" 
+go test -v -race *.go | tee race.out
+
+echo "==================="
+echo "PROFILE MEM      "
+echo "==================="
+echo "go tool pprof -text  mem.out" 
+go tool pprof -top  -nodecount=15 mem.out | tee mem_prof.out
+
+echo "==================="
+echo "PROFILE CPU      "
+echo "==================="
+echo "go tool pprof -text  cpu.out" 
+go tool pprof -top -nodecount=20  cpu.out | tee cpu_prof.out
